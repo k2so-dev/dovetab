@@ -1,10 +1,11 @@
-import { computed } from 'vue'
+import { computed, shallowRef } from 'vue'
 import { model } from './bookmarks'
 import { score, ago } from './score'
 import { local, settings } from './settings'
 import { sortBookmarks, type SortCtx } from './sort'
 import { ancestors, descendants, type Bookmark, type Folder } from './tree'
 import { duplicates, stale } from './cleanup'
+import { later } from './platform'
 import { since, usageOf } from './usage'
 
 export const ALL = 'all'
@@ -92,14 +93,22 @@ function recentlyAdded(limit: number): Bookmark[] {
     .slice(0, limit)
 }
 
-export const dupeGroups = computed(() => duplicates([...model.value.bookmarks.values()].filter((b) => !isHidden(b))))
+const cleanupReady = shallowRef(false)
+later(() => (cleanupReady.value = true))
+const cleanupOn = () => cleanupReady.value || local.view === CLEAN
+
+export const dupeGroups = computed(() =>
+  cleanupOn() ? duplicates([...model.value.bookmarks.values()].filter((b) => !isHidden(b))) : [],
+)
 export const staleItems = computed(() =>
-  stale(
-    [...model.value.bookmarks.values()].filter((b) => !isHidden(b) && !isPinned(b)),
-    (b) => usageOf(b.url),
-    NOW,
-    since,
-  ),
+  !cleanupOn()
+    ? []
+    : stale(
+        [...model.value.bookmarks.values()].filter((b) => !isHidden(b) && !isPinned(b)),
+        (b) => usageOf(b.url),
+        NOW,
+        since,
+      ),
 )
 export const extraCopies = computed(() => dupeGroups.value.flatMap((g) => g.slice(1)))
 export const cleanupCount = computed(() => extraCopies.value.length + staleItems.value.length)

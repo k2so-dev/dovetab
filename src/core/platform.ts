@@ -75,3 +75,7 @@ export async function dropPermission(p: Perm) {
     await browser.permissions.remove(p as never)
   } catch {}
 }
+
+export function later(fn: () => void, delay = 2000) {
+  setTimeout(() => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: delay }) : fn()), delay)
+}
