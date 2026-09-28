@@ -4,10 +4,12 @@ import { score, ago } from './score'
 import { local, settings } from './settings'
 import { sortBookmarks, type SortCtx } from './sort'
 import { ancestors, descendants, type Bookmark, type Folder } from './tree'
-import { usageOf } from './usage'
+import { duplicates, stale } from './cleanup'
+import { since, usageOf } from './usage'
 
 export const ALL = 'all'
 export const RECO = 'reco'
+export const CLEAN = 'clean'
 
 const NOW = Date.now()
 const FRESH_DAYS = 7
@@ -42,7 +44,7 @@ export const counts = computed(() => {
 
 export const totalCount = computed(() => model.value.roots.reduce((a, r) => a + (counts.value.get(r) ?? 0), 0))
 
-export type Meta = 'ago' | 'usage' | 'added'
+export type Meta = 'ago' | 'usage' | 'added' | 'folder'
 
 export interface Section {
   key: string
@@ -53,9 +55,15 @@ export interface Section {
   meta: Meta
   draggable: boolean
   empty?: string
+  action?: { label: string; kind: 'dupes' | 'stale' }
 }
 
 export function metaText(b: Bookmark, meta: Meta): string {
+  if (meta === 'folder') {
+    const m = model.value
+    const f = m.folders.get(b.parentId)
+    return f ? [...ancestors(m, f.id).map((a) => a.title), f.title].join(' / ') : ''
+  }
   const u = usageOf(b.url)
   if (meta === 'added') return `added ${ago(b.dateAdded, NOW)}`
   if (meta === 'usage') {
@@ -83,6 +91,18 @@ function recentlyAdded(limit: number): Bookmark[] {
     .sort((a, b) => b.dateAdded - a.dateAdded)
     .slice(0, limit)
 }
+
+export const dupeGroups = computed(() => duplicates([...model.value.bookmarks.values()].filter((b) => !isHidden(b))))
+export const staleItems = computed(() =>
+  stale(
+    [...model.value.bookmarks.values()].filter((b) => !isHidden(b) && !isPinned(b)),
+    (b) => usageOf(b.url),
+    NOW,
+    since,
+  ),
+)
+export const extraCopies = computed(() => dupeGroups.value.flatMap((g) => g.slice(1)))
+export const cleanupCount = computed(() => extraCopies.value.length + staleItems.value.length)
 
 export const sections = computed<Section[]>(() => {
   const m = model.value
@@ -113,7 +133,33 @@ export const sections = computed<Section[]>(() => {
     }
   }
 
-  if (v === RECO) {
+  if (v === CLEAN) {
+    const extra = extraCopies.value.length
+    out.push({
+      key: 'dupes',
+      title: 'Duplicates',
+      path: '',
+      items: dupeGroups.value.flat(),
+      meta: 'folder',
+      draggable: false,
+      empty: 'No duplicate bookmarks.',
+      action: extra ? { label: `Remove ${extra} extra ${extra === 1 ? 'copy' : 'copies'}`, kind: 'dupes' } : undefined,
+    })
+    const old = staleItems.value
+    out.push({
+      key: 'stale',
+      title: 'Not opened in 6 months',
+      path: '',
+      items: old,
+      meta: 'added',
+      draggable: false,
+      empty:
+        Date.now() - since < 30 * 864e5
+          ? 'Shelf needs about a month of usage before it can tell which bookmarks you never open.'
+          : 'Every old bookmark was opened recently.',
+      action: old.length ? { label: 'Delete all', kind: 'stale' } : undefined,
+    })
+  } else if (v === RECO) {
     out.push({
       key: 'top',
       title: 'Frequently opened',
@@ -141,11 +187,16 @@ export const currentFolder = computed(() => model.value.folders.get(local.view))
 export const crumbs = computed(() => (currentFolder.value ? ancestors(model.value, local.view) : []))
 
 export const title = computed(() =>
-  local.view === RECO ? 'Recommended' : (currentFolder.value?.title ?? 'All bookmarks'),
+  local.view === RECO
+    ? 'Recommended'
+    : local.view === CLEAN
+      ? 'Cleanup'
+      : (currentFolder.value?.title ?? 'All bookmarks'),
 )
 
 export const total = computed(() => {
   if (local.view === RECO) return ''
+  if (local.view === CLEAN) return String(cleanupCount.value || '')
   return String(currentFolder.value ? (counts.value.get(local.view) ?? 0) : totalCount.value)
 })
 
@@ -153,7 +204,7 @@ export interface TreeRow {
   id: string
   title: string
   depth: number
-  icon: 'layers' | 'sparkles' | 'bookmark' | 'folder'
+  icon: 'layers' | 'sparkles' | 'brush-cleaning' | 'bookmark' | 'folder'
   count: string
   hasKids: boolean
   open: boolean
@@ -186,6 +237,18 @@ export const treeRows = computed<TreeRow[]>(() => {
       folder: false,
     },
   ]
+  if (cleanupCount.value || local.view === CLEAN)
+    rows.push({
+      id: CLEAN,
+      title: 'Cleanup',
+      depth: 0,
+      icon: 'brush-cleaning',
+      count: String(cleanupCount.value || ''),
+      hasKids: false,
+      open: false,
+      folder: false,
+    })
+  const base = rows.length
   const walk = (id: string) => {
     const f = m.folders.get(id)!
     const open = isOpen(f)
@@ -193,7 +256,7 @@ export const treeRows = computed<TreeRow[]>(() => {
       id,
       title: f.title,
       depth: f.depth,
-      icon: f.depth === 0 && rows.length === 2 ? 'bookmark' : 'folder',
+      icon: f.depth === 0 && rows.length === base ? 'bookmark' : 'folder',
       count: String(counts.value.get(id) ?? 0),
       hasKids: f.folders.length > 0,
       open,

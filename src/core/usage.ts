@@ -4,6 +4,7 @@ import { settings } from './settings'
 import type { Usage } from './score'
 
 const KEY = 'shelf:stats'
+const SINCE_KEY = 'shelf:since'
 type Stats = Record<string, [number, number]>
 
 function readStats(): Stats {
@@ -13,6 +14,20 @@ function readStats(): Stats {
     return {}
   }
 }
+
+function readSince(): number {
+  try {
+    const v = Number(localStorage.getItem(SINCE_KEY))
+    if (v) return v
+    const now = Date.now()
+    localStorage.setItem(SINCE_KEY, String(now))
+    return now
+  } catch {
+    return Date.now()
+  }
+}
+
+export const since = readSince()
 
 export const stats = shallowRef<Stats>(readStats())
 export const visits = shallowRef<Map<string, [number, number]>>(new Map())

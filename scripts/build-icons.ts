@@ -6,6 +6,7 @@ const ICONS = [
   'arrow-down-up',
   'bookmark',
   'bookmark-plus',
+  'brush-cleaning',
   'check',
   'chevron-right',
   'columns-3',
