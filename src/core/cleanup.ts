@@ -18,6 +18,29 @@ export function urlKey(url: string): string {
   }
 }
 
+export interface Visit {
+  url?: string
+  title?: string
+  lastVisitTime?: number
+}
+
+export function uniqueVisits(items: Visit[], max: number): [string, string, number][] {
+  const out: [string, string, number][] = []
+  const seen = new Set<string>()
+  for (const h of [...items].sort((a, b) => (b.lastVisitTime ?? 0) - (a.lastVisitTime ?? 0))) {
+    if (!h.url || !/^https?:/.test(h.url)) continue
+    const key = urlKey(h.url)
+    const title = h.title?.trim() ?? ''
+    const named = title && `${key.split(/[/?]/)[0]}|${title.toLowerCase()}`
+    if (seen.has(key) || (named && seen.has(named))) continue
+    seen.add(key)
+    if (named) seen.add(named)
+    out.push([h.url, title, h.lastVisitTime ?? 0])
+    if (out.length === max) break
+  }
+  return out
+}
+
 export function duplicates(bookmarks: Iterable<Bookmark>): Bookmark[][] {
   const groups = new Map<string, Bookmark[]>()
   for (const b of bookmarks) {

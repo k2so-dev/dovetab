@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { duplicates, stale, urlKey } from '@/core/cleanup'
+import { duplicates, stale, uniqueVisits, urlKey } from '@/core/cleanup'
 import type { Bookmark } from '@/core/tree'
 
 const DAY = 864e5
@@ -60,5 +60,36 @@ describe('stale', () => {
   it('skips opened ones', () => {
     const used = () => ({ clicks: 1, visits: 0, last: NOW - DAY })
     expect(stale([old], used, NOW, NOW - 60 * DAY)).toEqual([])
+  })
+})
+
+describe('uniqueVisits', () => {
+  it('keeps the newest visit of each page and skips non-web urls', () => {
+    const rows = uniqueVisits(
+      [
+        { url: 'https://example.com/a', title: 'A', lastVisitTime: 5 },
+        { url: 'https://www.example.com/a/#top', title: 'A', lastVisitTime: 9 },
+        { url: 'http://example.com/a?utm_source=x', title: 'A', lastVisitTime: 7 },
+        { url: 'https://app.test/inbox?id=1', title: 'Inbox', lastVisitTime: 8 },
+        { url: 'https://app.test/inbox?id=2', title: 'Inbox', lastVisitTime: 6 },
+        { url: 'https://other.test/inbox', title: 'Inbox', lastVisitTime: 4 },
+        { url: 'https://app.test/a', title: '', lastVisitTime: 3 },
+        { url: 'https://app.test/b', title: '', lastVisitTime: 2 },
+        { url: 'chrome://settings/', title: 'Settings', lastVisitTime: 10 },
+      ],
+      10,
+    )
+    expect(rows.map((r) => r[0])).toEqual([
+      'https://www.example.com/a/#top',
+      'https://app.test/inbox?id=1',
+      'https://other.test/inbox',
+      'https://app.test/a',
+      'https://app.test/b',
+    ])
+  })
+
+  it('stops at the limit', () => {
+    const items = Array.from({ length: 20 }, (_, i) => ({ url: `https://s${i}.test/`, lastVisitTime: i }))
+    expect(uniqueVisits(items, 12)).toHaveLength(12)
   })
 })

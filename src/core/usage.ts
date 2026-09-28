@@ -2,6 +2,7 @@ import { shallowRef, watch } from 'vue'
 import { model } from './bookmarks'
 import { browser, hasPermission, later } from './platform'
 import { settings } from './settings'
+import { uniqueVisits } from './cleanup'
 import type { Usage } from './score'
 import { hostOf, type Bookmark } from './tree'
 
@@ -136,15 +137,7 @@ function setRecent(rows: [string, string, number][]) {
 export async function loadRecent() {
   if (!recentOn() || !(await hasPermission({ permissions: ['history'] }))) return setRecent([])
   const items = await browser.history.search({ text: '', startTime: Date.now() - 7 * 864e5, maxResults: 100 })
-  const rows: [string, string, number][] = []
-  const seen = new Set<string>()
-  for (const h of items.sort((a, b) => (b.lastVisitTime ?? 0) - (a.lastVisitTime ?? 0))) {
-    if (!h.url || !/^https?:/.test(h.url) || seen.has(h.url)) continue
-    seen.add(h.url)
-    rows.push([h.url, h.title ?? '', h.lastVisitTime ?? 0])
-    if (rows.length === RECENT_MAX) break
-  }
-  setRecent(rows)
+  setRecent(uniqueVisits(items, RECENT_MAX))
 }
 
 export function initUsage(): Promise<void> {
