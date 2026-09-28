@@ -54,6 +54,9 @@ await page.evaluate(async () => {
     [design.id, 'Coolors', 'https://coolors.co'],
   ]
   for (const [p, t, u] of data) await mk(p, t, u)
+  const big = await mk(bar, 'Archive')
+  for (let i = 1; i <= 60; i++) await mk(big.id, `Archived page ${i}`, `https://example${i % 7}.org/p/${i}`)
+  await mk(other, 'GitHub again', 'https://www.github.com/')
   localStorage.setItem(
     'shelf:stats',
     JSON.stringify({
@@ -70,6 +73,7 @@ const shot = async (name: string) => {
   await page.screenshot({ path: `${out}/${name}.png` })
 }
 
+await page.getByRole('radio', { name: 'Tiles' }).click()
 await page.emulateMedia({ colorScheme: 'dark' })
 await shot('01-all-dark-tiles')
 await page.emulateMedia({ colorScheme: 'light' })
@@ -79,6 +83,29 @@ await page.getByRole('radio', { name: 'List' }).click()
 await shot('03-list')
 await page.getByRole('radio', { name: 'Columns' }).click()
 await shot('04-columns')
+await page.setViewportSize({ width: 2000, height: 1100 })
+await shot('04b-columns-wide')
+await page.locator('a[href="https://github.com/"]').last().hover()
+await shot('04c-columns-hover')
+await page.emulateMedia({ colorScheme: 'light' })
+await shot('04d-columns-hover-light')
+await page.emulateMedia({ colorScheme: 'dark' })
+await page.evaluate(async () => {
+  const s = JSON.parse(localStorage.getItem('shelf:settings') ?? '{}')
+  await chrome.storage.sync.set({ settings: { ...s, width: 'narrow' } })
+})
+await page.waitForTimeout(300)
+await page.waitForTimeout(500)
+await shot('04e-columns-narrow')
+await page.evaluate(async () => {
+  const s = JSON.parse(localStorage.getItem('shelf:settings') ?? '{}')
+  await chrome.storage.sync.set({ settings: { ...s, width: 'full' } })
+})
+await page.waitForTimeout(300)
+await page.locator('nav [role=button]', { hasText: 'Cleanup' }).click()
+await shot('04f-cleanup')
+await page.setViewportSize({ width: 1400, height: 900 })
+await page.locator('nav [role=button]', { hasText: 'All bookmarks' }).click()
 await page.getByRole('radio', { name: 'Tiles' }).click()
 await page.getByRole('button', { name: /^Work/ }).first().click()
 await page.waitForTimeout(200)

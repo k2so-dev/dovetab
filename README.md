@@ -4,15 +4,20 @@ Your browser bookmarks on the new tab page. Fast, private, open source. Chrome a
 
 - Bookmarks as tiles, list or dense columns, with a soft glow tinted by each site's icon
 - Folder tree sidebar, breadcrumbs, one section per subfolder
+- Full or narrow content width
 - Recommended: ranks what you open most and most recently, plus newly added bookmarks
 - Full management: edit title / URL / folder, move, drag to reorder, pin, hide, delete with undo, new folders
+- Cleanup: finds duplicate bookmarks and old ones you never open
+- Keyboard: arrow keys move between bookmarks, `Delete` removes, paste a URL anywhere to bookmark it
 - Search palette (`⌘K` / `Ctrl+K`, `/`, or just start typing), with optional history and web search
 - System, light or dark theme; animations can be turned off
-- System fonts, no web fonts, no framework runtime beyond Vue Vapor (~46 KB JS gzipped)
+- System fonts, no web fonts, no framework runtime beyond Vue Vapor (~49 KB JS gzipped)
 
 ## Privacy
 
 Shelf has no servers, no analytics, no telemetry and makes no network requests of its own.
+
+The optional "Warm up links on hover" setting (off by default) lets the browser resolve a bookmark's domain when you hover it, and open a connection when you press it, so the page loads sooner. Your DNS resolver sees these lookups, as it would when you open the link.
 
 | Data                      | Where it lives                                                             |
 | ------------------------- | -------------------------------------------------------------------------- |

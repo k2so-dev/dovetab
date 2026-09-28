@@ -59,6 +59,7 @@ const step = async (name: string, fn: () => Promise<void>) => {
 await step('renders seeded bookmarks from live tree', async () => {
   await tile('https://alpha.test/').waitFor()
   assert.equal(await page.locator('h1').textContent(), 'All bookmarks')
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.density), 'list')
 })
 
 await step('edit title and URL', async () => {
@@ -139,6 +140,76 @@ await step('new folder, rename, delete folder with confirm', async () => {
   await row2.waitFor({ state: 'detached' })
 })
 
+await step('arrow keys move focus, Delete removes with undo', async () => {
+  await page.locator('nav [role=button]', { hasText: 'All bookmarks' }).click()
+  await page.locator('body').click({ position: { x: 700, y: 880 } })
+  await page.keyboard.press('ArrowDown')
+  const focused = () => page.evaluate(() => document.activeElement?.getAttribute('href'))
+  const first = await focused()
+  assert.ok(first)
+  await page.keyboard.press('ArrowDown')
+  const second = await focused()
+  assert.ok(second && second !== first)
+  await page.keyboard.press('Delete')
+  await page.getByText(/^Deleted “/).waitFor()
+  await tile(second!).waitFor({ state: 'detached' })
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await tile(second!).waitFor()
+})
+
+await step('paste a URL opens a prefilled new bookmark', async () => {
+  await page.evaluate(() => {
+    const dt = new DataTransfer()
+    dt.setData('text/plain', 'epsilon.test/path')
+    window.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt }))
+  })
+  assert.equal(await page.getByLabel('URL').inputValue(), 'https://epsilon.test/path')
+  assert.equal(await page.getByLabel('Name').inputValue(), 'epsilon.test')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await tile('https://epsilon.test/path').waitFor()
+})
+
+await step('warm-up adds dns-prefetch only when enabled', async () => {
+  const hints = () => page.locator('link[rel=dns-prefetch]').count()
+  await tile('https://alpha.test/').hover()
+  await page.waitForTimeout(150)
+  assert.equal(await hints(), 0)
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: /Warm up links on hover/ }).click()
+  await page.keyboard.press('Escape')
+  await tile('https://beta2.test/').hover()
+  await page.waitForTimeout(150)
+  assert.equal(await page.locator('link[rel=dns-prefetch][href="https://beta2.test"]').count(), 1)
+})
+
+await step('cleanup removes duplicates with undo', async () => {
+  await page.evaluate(() =>
+    chrome.bookmarks.create({ parentId: '2', title: 'Alpha copy', url: 'https://www.alpha.test' }),
+  )
+  const row = page.locator('nav [role=button]', { hasText: 'Cleanup' })
+  await row.click()
+  assert.equal(await page.locator('h1').textContent(), 'Cleanup')
+  await page.getByRole('button', { name: 'Remove 1 extra copy' }).click()
+  await page.getByText('Deleted 1 bookmark').waitFor()
+  assert.equal((await tree(page))['Alpha copy'], undefined)
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await page.waitForTimeout(300)
+  assert.equal((await tree(page))['Alpha copy'], '/Other bookmarks')
+})
+
+await step('narrow width centers content', async () => {
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('radio', { name: 'Narrow' }).click()
+  await page.keyboard.press('Escape')
+  await page.setViewportSize({ width: 2000, height: 900 })
+  const w = await page
+    .locator('main .wrap')
+    .last()
+    .evaluate((el) => el.getBoundingClientRect().width)
+  assert.ok(w <= 1200, `wrap is ${w}px`)
+  await page.setViewportSize({ width: 1400, height: 900 })
+})
+
 await step('palette search opens folder', async () => {
   await page.keyboard.press('Control+k')
   await page.keyboard.type('work')
@@ -148,9 +219,10 @@ await step('palette search opens folder', async () => {
 })
 
 await step('settings persist across reload', async () => {
-  await page.getByRole('radio', { name: 'List' }).click()
+  await page.getByRole('radio', { name: 'Tiles' }).click()
   await page.reload()
-  assert.equal(await page.evaluate(() => document.documentElement.dataset.density), 'list')
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.density), 'tiles')
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.width), 'narrow')
   assert.equal(await page.locator('h1').textContent(), 'Work')
 })
 
