@@ -47,7 +47,7 @@ export function hostOf(url: string): string {
 
 const isBookmark = (n: RawNode) => !!n.url && n.type !== 'separator' && !n.url.startsWith('place:')
 
-export function buildModel(tree: RawNode[]): Model {
+export function buildModel(tree: RawNode[], prev?: Model): Model {
   const folders = new Map<string, Folder>()
   const bookmarks = new Map<string, Bookmark>()
   const top = tree[0]?.children ?? []
@@ -70,15 +70,23 @@ export function buildModel(tree: RawNode[]): Model {
         walk(c, n.id, depth + 1)
       } else if (isBookmark(c)) {
         f.bookmarks.push(c.id)
-        bookmarks.set(c.id, {
-          id: c.id,
-          parentId: n.id,
-          title: c.title || hostOf(c.url!),
-          url: c.url!,
-          host: hostOf(c.url!),
-          dateAdded: c.dateAdded ?? 0,
-          index: c.index ?? 0,
-        })
+        const title = c.title || hostOf(c.url!)
+        const index = c.index ?? 0
+        const old = prev?.bookmarks.get(c.id)
+        bookmarks.set(
+          c.id,
+          old && old.parentId === n.id && old.title === title && old.url === c.url && old.index === index
+            ? old
+            : {
+                id: c.id,
+                parentId: n.id,
+                title,
+                url: c.url!,
+                host: hostOf(c.url!),
+                dateAdded: c.dateAdded ?? 0,
+                index,
+              },
+        )
       }
     }
   }

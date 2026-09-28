@@ -25,7 +25,7 @@ export const loaded = shallowRef(false)
 
 export async function refresh() {
   const tree = (await browser.bookmarks.getTree()) as RawNode[]
-  model.value = buildModel(tree)
+  model.value = buildModel(tree, model.value)
   loaded.value = true
   const save = () => {
     try {

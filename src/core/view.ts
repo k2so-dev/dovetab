@@ -104,7 +104,29 @@ export const staleItems = computed(() =>
 export const extraCopies = computed(() => dupeGroups.value.flatMap((g) => g.slice(1)))
 export const cleanupCount = computed(() => extraCopies.value.length + staleItems.value.length)
 
+const same = (a: Section, b: Section) =>
+  a.title === b.title &&
+  a.path === b.path &&
+  a.meta === b.meta &&
+  a.draggable === b.draggable &&
+  a.empty === b.empty &&
+  a.action?.label === b.action?.label &&
+  a.items.length === b.items.length &&
+  a.items.every((x, i) => x === b.items[i])
+
+let prevSections = new Map<string, Section>()
+
 export const sections = computed<Section[]>(() => {
+  const next = buildSections()
+  const out = next.map((s) => {
+    const old = prevSections.get(s.key)
+    return old && same(old, s) ? old : s
+  })
+  prevSections = new Map(out.map((s) => [s.key, s]))
+  return out
+})
+
+function buildSections(): Section[] {
   const m = model.value
   const v = local.view
   const draggable = settings.sort === 'browser'
@@ -180,7 +202,7 @@ export const sections = computed<Section[]>(() => {
     folderSections(v, false)
   }
   return out
-})
+}
 
 export const currentFolder = computed(() => model.value.folders.get(local.view))
 
