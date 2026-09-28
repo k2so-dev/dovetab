@@ -283,7 +283,16 @@ function resetStats() {
       </div>
 
       <div class="flex items-center justify-between border-t border-border px-[22px] py-3 text-xs text-mfg">
-        <span class="font-mono">Dovetab {{ version }} · MIT</span>
+        <span class="font-mono">
+          Dovetab {{ version }} · MIT ·
+          <a
+            href="https://github.com/k2so-dev/dovetab"
+            target="_blank"
+            rel="noopener"
+            class="underline-offset-2 hover:text-fg hover:underline"
+            >GitHub</a
+          >
+        </span>
         <span class="flex items-center gap-1.5">
           Search
           <kbd class="rounded border border-border px-[5px] py-px font-mono text-[11px]">{{ modKey }}K</kbd>

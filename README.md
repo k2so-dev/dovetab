@@ -59,8 +59,17 @@ pnpm build && pnpm zip                    # .output/dovetab-<version>-chrome.zip
 pnpm build:firefox && pnpm zip:firefox    # .output/dovetab-<version>-firefox.zip
 ```
 
-Load unpacked: Chrome → `chrome://extensions` → Developer mode → Load unpacked → `.output/chrome-mv3`.
-Firefox → `about:debugging` → This Firefox → Load Temporary Add-on → `.output/firefox-mv3/manifest.json`.
+### Try it in Chrome
+
+`chrome://extensions` → Developer mode → Load unpacked → `.output/chrome-mv3`.
+
+### Try it in Firefox
+
+Firefox 128 or newer.
+
+- Quickest: `pnpm dev:firefox` opens a fresh Firefox profile with the extension and reloads it on changes.
+- In your own profile: `pnpm build:firefox`, then `about:debugging` → This Firefox → Load Temporary Add-on → `.output/firefox-mv3/manifest.json`. Open a new tab and choose "Keep Changes" when Firefox asks about the new tab page. Temporary add-ons are removed when Firefox restarts.
+- Keep it installed across restarts: release Firefox only installs signed add-ons, so either sign it as unlisted on AMO, or use Firefox Developer Edition / Nightly, set `xpinstall.signatures.required` to `false` in `about:config`, rename `dovetab-<version>-firefox.zip` to `.xpi` and install it from `about:addons` → gear → Install Add-on From File.
 
 ### Stack
 

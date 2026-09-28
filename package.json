@@ -8,6 +8,10 @@
   "homepage": "https://github.com/k2so-dev/dovetab",
   "repository": "github:k2so-dev/dovetab",
   "bugs": "https://github.com/k2so-dev/dovetab/issues",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
