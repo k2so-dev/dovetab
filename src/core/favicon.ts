@@ -46,20 +46,24 @@ const siteIconsOn = shallowRef(false)
 
 let defaultSig: Promise<string | null> = Promise.resolve(null)
 
-export async function initIcons() {
+export function initIcons(): Promise<void> {
   if (!isFirefox) defaultSig = chromeDefaultSignature()
-  try {
-    for (const [host, rec] of await db.entries()) {
-      attempted.set(host, rec.ts)
-      if (rec.blob) fetched.set(host, URL.createObjectURL(rec.blob))
-    }
-  } catch {}
-  iconsReady.value = true
+  if (!settings.siteIcons) iconsReady.value = true
   const sync = async () => {
     siteIconsOn.value = settings.siteIcons && (await hasPermission({ origins: ['<all_urls>'] }))
   }
-  await sync()
+  void sync()
   watch(() => settings.siteIcons, sync)
+  return db
+    .entries()
+    .then((entries) => {
+      for (const [host, rec] of entries) {
+        attempted.set(host, rec.ts)
+        if (rec.blob) fetched.set(host, URL.createObjectURL(rec.blob))
+      }
+    })
+    .catch(() => {})
+    .finally(() => (iconsReady.value = true))
 }
 
 function chromeDefaultSignature(): Promise<string | null> {
