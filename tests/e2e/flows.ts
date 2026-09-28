@@ -13,7 +13,7 @@ const id = [...createHash('sha256').update(ext).digest('hex').slice(0, 32)]
   .map((c) => String.fromCharCode(97 + parseInt(c, 16)))
   .join('')
 
-const ctx = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'shelf-')), {
+const ctx = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'dovetab-')), {
   headless: true,
   channel: 'chromium',
   viewport: { width: 1400, height: 900 },
@@ -244,6 +244,22 @@ await step('settings persist across reload', async () => {
   assert.equal(await page.locator('h1').textContent(), 'Work')
 })
 
+await step('custom sidebar title, tab title stays New Tab', async () => {
+  const brand = page.locator('aside').getByText('Dovetab', { exact: true })
+  await brand.waitFor()
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByPlaceholder('Dovetab').fill('My links')
+  await page.keyboard.press('Escape')
+  await page.locator('aside').getByText('My links', { exact: true }).waitFor()
+  await page.reload()
+  await page.locator('aside').getByText('My links', { exact: true }).waitFor()
+  assert.equal(await page.title(), 'New Tab')
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByPlaceholder('Dovetab').fill('')
+  await page.keyboard.press('Escape')
+  await brand.waitFor()
+})
+
 await step('show icons off hides icons but keeps the glow', async () => {
   await page.getByRole('button', { name: 'Settings' }).click()
   await page.getByRole('button', { name: /Show icons/ }).click()
@@ -263,7 +279,7 @@ await step('show icons off hides icons but keeps the glow', async () => {
 
 await step('cached history visits render in the first frame', async () => {
   await page.evaluate(async () => {
-    localStorage.setItem('shelf:visits', JSON.stringify([['https://alpha.test/', [3, Date.now() - 5 * 36e5]]]))
+    localStorage.setItem('dovetab:visits', JSON.stringify([['https://alpha.test/', [3, Date.now() - 5 * 36e5]]]))
     const { settings } = (await chrome.storage.sync.get('settings')) as { settings: object }
     await chrome.storage.sync.set({ settings: { ...settings, history: true, density: 'list' } })
   })
@@ -271,7 +287,7 @@ await step('cached history visits render in the first frame', async () => {
   await page.reload()
   const meta = tile('https://alpha.test/').locator('.font-mono')
   assert.match((await meta.textContent({ timeout: 500 })) ?? '', /5h ago/)
-  await page.waitForFunction(() => !localStorage.getItem('shelf:visits'), null, { timeout: 5000 })
+  await page.waitForFunction(() => !localStorage.getItem('dovetab:visits'), null, { timeout: 5000 })
   await page.evaluate(async () => {
     const { settings } = (await chrome.storage.sync.get('settings')) as { settings: object }
     await chrome.storage.sync.set({ settings: { ...settings, history: false } })

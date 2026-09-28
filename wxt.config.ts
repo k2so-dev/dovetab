@@ -6,7 +6,7 @@ export default defineConfig({
   srcDir: 'src',
   manifestVersion: 3,
   manifest: ({ browser }) => ({
-    name: 'Shelf',
+    name: 'Dovetab',
     description: 'Your bookmarks on the new tab. Fast, private, open source.',
     permissions: ['bookmarks', 'storage', 'search', ...(browser === 'firefox' ? [] : ['favicon'])],
     optional_permissions: ['history'],
@@ -14,7 +14,7 @@ export default defineConfig({
     ...(browser === 'firefox' && {
       browser_specific_settings: {
         gecko: {
-          id: 'shelf@newtab',
+          id: 'dovetab@newtab',
           strict_min_version: '128.0',
           data_collection_permissions: { required: ['none'] },
         },

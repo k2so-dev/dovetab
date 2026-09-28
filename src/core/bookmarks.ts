@@ -2,7 +2,7 @@ import { shallowRef } from 'vue'
 import { browser, isFirefox } from './platform'
 import { buildModel, type Model, type RawNode } from './tree'
 
-const SNAP_KEY = 'shelf:snapshot'
+const SNAP_KEY = 'dovetab:snapshot'
 
 function readSnapshot(): RawNode[] {
   try {

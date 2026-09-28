@@ -3,6 +3,7 @@ import { browser } from './platform'
 import type { SortKey } from './sort'
 
 export interface Settings {
+  title: string
   theme: 'system' | 'light' | 'dark'
   density: 'tiles' | 'list' | 'columns'
   width: 'full' | 'narrow'
@@ -25,6 +26,7 @@ export interface LocalState {
 }
 
 const DEFAULTS: Settings = {
+  title: 'Dovetab',
   theme: 'system',
   density: 'list',
   width: 'full',
@@ -41,8 +43,8 @@ const DEFAULTS: Settings = {
   hidden: [],
 }
 
-const KEY = 'shelf:settings'
-const LOCAL_KEY = 'shelf:local'
+const KEY = 'dovetab:settings'
+const LOCAL_KEY = 'dovetab:local'
 
 function read<T>(key: string, fallback: T): T {
   try {

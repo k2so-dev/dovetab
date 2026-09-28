@@ -6,7 +6,7 @@ import { chromeFavicon, hasPermission, isFirefox, later } from './platform'
 import { settings } from './settings'
 import type { Bookmark } from './tree'
 
-const COLORS_KEY = 'shelf:colors'
+const COLORS_KEY = 'dovetab:colors'
 const MISSING_TTL_DAYS = 7
 const FETCH_TTL = 30 * 864e5
 const today = () => Math.floor(Date.now() / 864e5)
@@ -39,7 +39,7 @@ interface IconRec {
   blob: Blob | null
   ts: number
 }
-const db = openStore<IconRec>('shelf-icons', 'icons')
+const db = openStore<IconRec>('dovetab-icons', 'icons')
 export const fetched = reactive(new Map<string, string>())
 const attempted = new Map<string, number>()
 export const iconsReady = shallowRef(false)
@@ -101,7 +101,7 @@ function chromeDefaultSignature(): Promise<string | null> {
       res(px && signature(px))
     }
     img.onerror = () => res(null)
-    img.src = chromeFavicon('https://shelf.invalid/', 64)
+    img.src = chromeFavicon('https://dovetab.invalid/', 64)
   })
 }
 

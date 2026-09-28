@@ -34,7 +34,9 @@ function toggleTheme() {
       <div class="grid size-[22px] place-items-center rounded-md bg-fg text-bg">
         <Icon name="bookmark" :size="12" :stroke="3" />
       </div>
-      <div class="text-sm font-semibold tracking-[-0.01em]">Shelf</div>
+      <div class="min-w-0 truncate text-sm font-semibold tracking-[-0.01em]">
+        {{ settings.title.trim() || 'Dovetab' }}
+      </div>
     </div>
 
     <nav class="flex min-h-0 flex-1 flex-col gap-px overflow-auto px-2 pt-1 pb-3" aria-label="Folders">

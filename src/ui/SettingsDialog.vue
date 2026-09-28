@@ -95,6 +95,20 @@ function resetStats() {
             ]"
           />
         </div>
+        <label class="flex items-center justify-between gap-4 py-2.5">
+          <div class="min-w-0">
+            <div class="text-[13.5px] font-medium">Title</div>
+            <div class="mt-0.5 text-[12.5px] text-pretty text-mfg">Name at the top of the sidebar.</div>
+          </div>
+          <input
+            v-model="settings.title"
+            type="text"
+            maxlength="40"
+            placeholder="Dovetab"
+            spellcheck="false"
+            class="h-8 w-44 rounded-lg border border-border bg-input px-2.5 text-[13px] text-fg outline-0 focus:border-mfg focus:shadow-[0_0_0_3px_var(--ring)]"
+          />
+        </label>
         <div class="flex items-center justify-between gap-4 py-2.5">
           <div class="min-w-0">
             <div class="text-[13.5px] font-medium">Width</div>
@@ -263,13 +277,13 @@ function resetStats() {
           </button>
         </div>
         <p class="text-[12.5px] text-pretty text-mfg">
-          Shelf has no servers and no analytics. Settings sync with your browser account; stats and icons stay on this
+          Dovetab has no servers and no analytics. Settings sync with your browser account; stats and icons stay on this
           device.
         </p>
       </div>
 
       <div class="flex items-center justify-between border-t border-border px-[22px] py-3 text-xs text-mfg">
-        <span class="font-mono">Shelf {{ version }} · MIT</span>
+        <span class="font-mono">Dovetab {{ version }} · MIT</span>
         <span class="flex items-center gap-1.5">
           Search
           <kbd class="rounded border border-border px-[5px] py-px font-mono text-[11px]">{{ modKey }}K</kbd>

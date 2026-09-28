@@ -4,9 +4,9 @@ import { browser, hasPermission, later } from './platform'
 import { settings } from './settings'
 import type { Usage } from './score'
 
-const KEY = 'shelf:stats'
-const SINCE_KEY = 'shelf:since'
-const VISITS_KEY = 'shelf:visits'
+const KEY = 'dovetab:stats'
+const SINCE_KEY = 'dovetab:since'
+const VISITS_KEY = 'dovetab:visits'
 type Stats = Record<string, [number, number]>
 type Visits = Map<string, [number, number]>
 

@@ -1,10 +1,13 @@
 {
-  "name": "shelf",
+  "name": "dovetab",
   "description": "Bookmarks on your new tab. Fast, private, open source.",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "MIT",
+  "homepage": "https://github.com/k2so-dev/dovetab",
+  "repository": "github:k2so-dev/dovetab",
+  "bugs": "https://github.com/k2so-dev/dovetab/issues",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",

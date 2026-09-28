@@ -11,7 +11,7 @@ const id = [...createHash('sha256').update(ext).digest('hex').slice(0, 32)]
   .map((c) => String.fromCharCode(97 + parseInt(c, 16)))
   .join('')
 const out = resolve(process.argv[2] ?? 'tests/e2e/.shots')
-const ctx = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'shelf-')), {
+const ctx = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'dovetab-')), {
   headless: true,
   channel: 'chromium',
   viewport: { width: 1400, height: 900 },
@@ -58,7 +58,7 @@ await page.evaluate(async () => {
   for (let i = 1; i <= 60; i++) await mk(big.id, `Archived page ${i}`, `https://example${i % 7}.org/p/${i}`)
   await mk(other, 'GitHub again', 'https://www.github.com/')
   localStorage.setItem(
-    'shelf:stats',
+    'dovetab:stats',
     JSON.stringify({
       'https://github.com/': [40, Date.now() - 3e6],
       'https://claude.ai/': [25, Date.now() - 9e6],
@@ -91,14 +91,14 @@ await page.emulateMedia({ colorScheme: 'light' })
 await shot('04d-columns-hover-light')
 await page.emulateMedia({ colorScheme: 'dark' })
 await page.evaluate(async () => {
-  const s = JSON.parse(localStorage.getItem('shelf:settings') ?? '{}')
+  const s = JSON.parse(localStorage.getItem('dovetab:settings') ?? '{}')
   await chrome.storage.sync.set({ settings: { ...s, width: 'narrow' } })
 })
 await page.waitForTimeout(300)
 await page.waitForTimeout(500)
 await shot('04e-columns-narrow')
 await page.evaluate(async () => {
-  const s = JSON.parse(localStorage.getItem('shelf:settings') ?? '{}')
+  const s = JSON.parse(localStorage.getItem('dovetab:settings') ?? '{}')
   await chrome.storage.sync.set({ settings: { ...s, width: 'full' } })
 })
 await page.waitForTimeout(300)

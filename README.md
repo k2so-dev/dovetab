@@ -1,4 +1,4 @@
-# Shelf
+# Dovetab
 
 Your browser bookmarks on the new tab page. Fast, private, open source. Chrome and Firefox.
 
@@ -15,13 +15,13 @@ Your browser bookmarks on the new tab page. Fast, private, open source. Chrome a
 
 ## Privacy
 
-Shelf has no servers, no analytics, no telemetry and makes no network requests of its own.
+Dovetab has no servers, no analytics, no telemetry and makes no network requests of its own.
 
 The optional "Warm up links on hover" setting (off by default) lets the browser resolve a bookmark's domain when you hover it, so the page starts loading sooner. Your DNS resolver sees these lookups, as it would when you open the link.
 
 | Data                      | Where it lives                                                             |
 | ------------------------- | -------------------------------------------------------------------------- |
-| Bookmarks                 | Your browser. Shelf reads and edits them through the `bookmarks` API.      |
+| Bookmarks                 | Your browser. Dovetab reads and edits them through the `bookmarks` API.    |
 | Settings, pins, hidden    | `storage.sync`, synced by your browser account like any extension setting. |
 | Open counts (for ranking) | `localStorage` on this device. Clear it in Settings → Data.                |
 | Site icons and colors     | IndexedDB / `localStorage` on this device. Clear it in Settings → Data.    |
@@ -42,6 +42,7 @@ The optional "Warm up links on hover" setting (off by default) lets the browser 
 Requires Node 22+ and pnpm.
 
 ```sh
+git clone https://github.com/k2so-dev/dovetab.git && cd dovetab
 pnpm install
 pnpm dev            # Chrome with hot reload
 pnpm dev:firefox    # Firefox
@@ -54,8 +55,8 @@ pnpm typecheck
 Build and package:
 
 ```sh
-pnpm build && pnpm zip                    # .output/shelf-<version>-chrome.zip
-pnpm build:firefox && pnpm zip:firefox    # .output/shelf-<version>-firefox.zip
+pnpm build && pnpm zip                    # .output/dovetab-<version>-chrome.zip
+pnpm build:firefox && pnpm zip:firefox    # .output/dovetab-<version>-firefox.zip
 ```
 
 Load unpacked: Chrome → `chrome://extensions` → Developer mode → Load unpacked → `.output/chrome-mv3`.

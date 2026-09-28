@@ -186,7 +186,7 @@ function buildSections(): Section[] {
       draggable: false,
       empty:
         Date.now() - since < 30 * 864e5
-          ? 'Shelf needs about a month of usage before it can tell which bookmarks you never open.'
+          ? 'Dovetab needs about a month of usage before it can tell which bookmarks you never open.'
           : 'Every old bookmark was opened recently.',
       action: old.length ? { label: 'Delete all', kind: 'stale' } : undefined,
     })

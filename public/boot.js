@@ -1,5 +1,5 @@
 try {
-  var s = JSON.parse(localStorage.getItem('shelf:settings') || '{}')
+  var s = JSON.parse(localStorage.getItem('dovetab:settings') || '{}')
   var d = document.documentElement.dataset
   d.theme = s.theme || 'system'
   d.glow = s.glow || 'subtle'
