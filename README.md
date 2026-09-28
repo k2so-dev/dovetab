@@ -11,7 +11,7 @@ Your browser bookmarks on the new tab page. Fast, private, open source. Chrome a
 - Keyboard: arrow keys move between bookmarks, `Delete` removes, paste a URL anywhere to bookmark it
 - Search palette (`⌘K` / `Ctrl+K`, `/`, or just start typing), with optional history and web search
 - System, light or dark theme; animations can be turned off
-- System fonts, no web fonts, no framework runtime beyond Vue Vapor (~49 KB JS gzipped)
+- System fonts, no web fonts, no framework runtime beyond Vue Vapor (~50 KB JS gzipped)
 
 ## Privacy
 
