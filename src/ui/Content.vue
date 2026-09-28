@@ -24,13 +24,19 @@ const letter = (b: Bookmark) => (iconsReady.value ? (b.title.trim()[0] ?? b.host
 const tint = (b: Bookmark) => (iconsReady.value ? colorFor(b.host) : 'var(--accent)')
 const glow = (b: Bookmark) => ({ '--c': colorFor(b.host) })
 
-const FIRST_PAINT = 240
 const shown = shallowRef(new Set<string>())
-const width = shallowRef(1000)
+const width = shallowRef(Math.max(300, Math.min(window.innerWidth - 332, 1360)))
+
+function firstBudget(): number {
+  const h = window.innerHeight * 1.25
+  const [min, gap, row] =
+    settings.density === 'tiles' ? [136, 10, 118] : settings.density === 'list' ? [256, 16, 42] : [260, 36, 30]
+  return Math.max(1, Math.floor((width.value + gap) / (min + gap))) * Math.ceil(h / row)
+}
 
 function firstKeys(): Set<string> {
   const out = new Set<string>()
-  let budget = FIRST_PAINT
+  let budget = firstBudget()
   for (const s of sections.value) {
     if (budget <= 0) break
     out.add(s.key)

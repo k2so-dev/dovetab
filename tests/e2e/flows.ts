@@ -60,6 +60,7 @@ await step('renders seeded bookmarks from live tree', async () => {
   await tile('https://alpha.test/').waitFor()
   assert.equal(await page.locator('h1').textContent(), 'All bookmarks')
   assert.equal(await page.evaluate(() => document.documentElement.dataset.density), 'list')
+  assert.equal(await page.locator('nav [role=button]', { hasText: 'Cleanup' }).count(), 1)
 })
 
 await step('edit title and URL', async () => {
@@ -271,7 +272,7 @@ await step('hidden tab drops offscreen sections after 5 minutes', async () => {
   await p.clock.fastForward('05:01')
   await p.waitForTimeout(100)
   const trimmed = await count()
-  assert.ok(trimmed < full && trimmed >= 200, `${full} -> ${trimmed}`)
+  assert.ok(trimmed < full && trimmed >= 40, `${full} -> ${trimmed}`)
   await p.close()
 })
 
