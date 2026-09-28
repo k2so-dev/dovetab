@@ -108,6 +108,23 @@ await step('pin puts a bookmark first', async () => {
   await page.waitForTimeout(100)
   const first = await page.locator('section', { hasText: 'Work' }).locator('a').first().getAttribute('href')
   assert.equal(first, 'https://beta2.test/')
+  assert.equal(await tile('https://beta2.test/').locator('i.pin').isVisible(), true)
+  assert.equal(await tile('https://alpha.test/').locator('i.pin').isVisible(), false)
+})
+
+await step('hover shows one floating more button that opens the menu', async () => {
+  assert.equal(await page.locator('button[data-more]').count(), 1)
+  await tile('https://alpha.test/').hover()
+  const more = page.locator('button[data-more]')
+  await more.waitFor()
+  const a = (await tile('https://alpha.test/').boundingBox())!
+  const m = (await more.boundingBox())!
+  assert.ok(m.x > a.x + a.width / 2 && m.x + m.width <= a.x + a.width && m.y >= a.y && m.y + m.height <= a.y + a.height)
+  await more.click()
+  await page.getByRole('menuitem', { name: 'Delete' }).waitFor()
+  await page.keyboard.press('Escape')
+  await page.mouse.move(5, 5)
+  await more.waitFor({ state: 'hidden' })
 })
 
 await step('hide removes it from the page and settings can unhide', async () => {
@@ -224,6 +241,38 @@ await step('settings persist across reload', async () => {
   assert.equal(await page.evaluate(() => document.documentElement.dataset.density), 'tiles')
   assert.equal(await page.evaluate(() => document.documentElement.dataset.width), 'narrow')
   assert.equal(await page.locator('h1').textContent(), 'Work')
+})
+
+await step('hidden tab drops offscreen sections after 5 minutes', async () => {
+  await page.evaluate(async () => {
+    const b = chrome.bookmarks
+    for (let f = 0; f < 12; f++) {
+      const dir = await b.create({ parentId: '2', title: `Bulk ${f}` })
+      for (let i = 0; i < 30; i++)
+        await b.create({ parentId: dir.id, title: `B${f}-${i}`, url: `https://b${f}-${i}.test/` })
+    }
+  })
+  const p = await ctx.newPage()
+  p.on('pageerror', (e) => errors.push(String(e)))
+  await p.clock.install()
+  await p.goto(`chrome-extension://${id}/newtab.html`)
+  await p.getByRole('radio', { name: 'List' }).click()
+  await p.locator('nav [role=button]', { hasText: 'All bookmarks' }).click()
+  await p.locator('a[href="https://b0-0.test/"]').waitFor()
+  const count = () => p.locator('a[data-bid]').count()
+  for (let i = 0; i < 20; i++) await p.locator('main').evaluate((m) => m.scrollBy(0, 2000))
+  await p.locator('a[href="https://b11-29.test/"]').waitFor()
+  await p.locator('main').evaluate((m) => m.scrollTo(0, 0))
+  const full = await count()
+  await p.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await p.clock.fastForward('05:01')
+  await p.waitForTimeout(100)
+  const trimmed = await count()
+  assert.ok(trimmed < full && trimmed >= 200, `${full} -> ${trimmed}`)
+  await p.close()
 })
 
 assert.deepEqual(errors, [])

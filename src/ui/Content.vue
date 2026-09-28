@@ -12,6 +12,8 @@ import Header from './Header.vue'
 
 const main = useTemplateRef<HTMLElement>('main')
 const wrap = useTemplateRef<HTMLElement>('wrap')
+const pad = useTemplateRef<HTMLElement>('pad')
+const more = useTemplateRef<HTMLButtonElement>('more')
 const columns = computed(() => settings.density === 'columns')
 const empty = computed(
   () => local.view !== RECO && local.view !== CLEAN && sections.value.every((s) => !s.items.length),
@@ -26,15 +28,38 @@ const FIRST_PAINT = 240
 const shown = shallowRef(new Set<string>())
 const width = shallowRef(1000)
 
-function topUp(from = shown.value) {
-  const out = new Set(from)
+function firstKeys(): Set<string> {
+  const out = new Set<string>()
   let budget = FIRST_PAINT
   for (const s of sections.value) {
     if (budget <= 0) break
     out.add(s.key)
     budget -= s.items.length
   }
+  return out
+}
+function topUp(from = shown.value) {
+  const out = new Set([...from, ...firstKeys()])
   if (out.size !== shown.value.size || from !== shown.value) shown.value = out
+}
+
+const TRIM_AFTER = 5 * 60e3
+let trimTimer: ReturnType<typeof setTimeout> | undefined
+function trim() {
+  const root = main.value
+  if (!root) return
+  const limit = root.getBoundingClientRect().bottom + 1200
+  const first = firstKeys()
+  const keep = new Set(shown.value)
+  for (const el of root.querySelectorAll<HTMLElement>('section[data-key]')) {
+    const k = el.dataset.key!
+    if (!first.has(k) && el.getBoundingClientRect().top > limit) keep.delete(k)
+  }
+  if (keep.size < shown.value.size) shown.value = keep
+}
+function onVisibility() {
+  clearTimeout(trimTimer)
+  if (document.hidden) trimTimer = setTimeout(trim, TRIM_AFTER)
 }
 watch(
   () => [local.view, settings.density],
@@ -91,6 +116,7 @@ onMounted(() => {
   const root = main.value!
   root.addEventListener('load', onImg, true)
   root.addEventListener('error', onImg, true)
+  document.addEventListener('visibilitychange', onVisibility)
   io = new IntersectionObserver(
     (entries) => {
       const add = entries.filter((e) => e.isIntersecting).map((e) => (e.target as HTMLElement).dataset.key!)
@@ -105,29 +131,67 @@ onMounted(() => {
   observe()
 })
 onUnmounted(() => {
+  clearTimeout(trimTimer)
+  document.removeEventListener('visibilitychange', onVisibility)
   stopWarm?.()
   io?.disconnect()
   ro?.disconnect()
 })
 
+const MORE: Record<string, [number, number]> = { tiles: [26, 9], list: [28, 6], columns: [22, 4] }
+let hot: HTMLElement | null = null
+
+function setHot(a: HTMLElement | null) {
+  if (hot === a) return
+  hot?.removeAttribute('data-hot')
+  hot = a
+  const btn = more.value
+  if (!btn) return
+  if (!a || !pad.value) {
+    btn.hidden = true
+    return
+  }
+  a.setAttribute('data-hot', '')
+  const [size, inset] = MORE[settings.density] ?? MORE.list!
+  const r = a.getBoundingClientRect()
+  const p = pad.value.getBoundingClientRect()
+  btn.style.top = `${r.top - p.top + inset}px`
+  btn.style.left = `${r.right - p.left - inset - size}px`
+  btn.hidden = false
+}
+function onOver(e: PointerEvent) {
+  const t = e.target instanceof Element ? e.target : null
+  if (t?.closest('button[data-more]')) return
+  setHot(t?.closest<HTMLElement>('a[data-bid]') ?? null)
+}
+function onFocusIn(e: FocusEvent) {
+  const a = e.target instanceof Element ? e.target.closest<HTMLElement>('a[data-bid]') : null
+  if (a) setHot(a)
+}
+watch([sections, shown, () => settings.density], () => setHot(null))
+
 function openMenu(b: Bookmark, x: number, y: number) {
   ui.menu = { kind: 'bookmark', id: b.id, x, y }
 }
 
+function onMore(e: MouseEvent): boolean {
+  const btn = e.target instanceof Element ? e.target.closest('button[data-more]') : null
+  if (!btn) return false
+  e.preventDefault()
+  const hit = bookmarkOf(hot)
+  if (!hit || e.type !== 'click') return true
+  const r = btn.getBoundingClientRect()
+  openMenu(hit.b, r.left, r.bottom + 4)
+  return true
+}
 function onClick(e: MouseEvent) {
+  if (onMore(e)) return
   const hit = bookmarkOf(e.target)
   if (!hit) return
-  const more = (e.target as Element).closest('button[data-more]')
-  if (more) {
-    e.preventDefault()
-    const r = more.getBoundingClientRect()
-    openMenu(hit.b, r.left, r.bottom + 4)
-    return
-  }
   onBookmarkClick(e, hit.b)
 }
 function onContext(e: MouseEvent) {
-  const hit = bookmarkOf(e.target)
+  const hit = bookmarkOf(e.target) ?? (onMore(e) ? bookmarkOf(hot) : null)
   if (!hit) return
   e.preventDefault()
   openMenu(hit.b, e.clientX, e.clientY)
@@ -241,6 +305,8 @@ function onKey(e: KeyboardEvent) {
     ref="main"
     class="h-screen min-w-0 overflow-auto"
     @keydown="onKey"
+    @pointerover="onOver"
+    @focusin="onFocusIn"
     @click="onClick"
     @auxclick="onClick"
     @contextmenu="onContext"
@@ -250,7 +316,7 @@ function onKey(e: KeyboardEvent) {
     @dragend="onDragEnd"
   >
     <Header />
-    <div class="px-9 pt-1.5 pb-20">
+    <div ref="pad" class="relative px-9 pt-1.5 pb-20" @pointerleave="setHot(null)">
       <div ref="wrap" class="wrap" :class="columns && 'columns-[260px] gap-x-9'">
         <section
           v-for="s in sections"
@@ -305,7 +371,7 @@ function onKey(e: KeyboardEvent) {
               :key="b.id"
               :href="b.url"
               :data-bid="b.id"
-              class="group relative flex h-[108px] flex-col justify-between overflow-hidden rounded-xl border border-border bg-card p-[13px] shadow-tile outline-offset-2 hover:border-accent2 focus-visible:outline-2 focus-visible:outline-mfg motion:transition-[border-color]"
+              class="group relative flex h-[108px] flex-col justify-between overflow-hidden rounded-xl border border-border bg-card p-[13px] shadow-tile outline-offset-2 hover:border-accent2 focus-visible:outline-2 data-hot:border-accent2 focus-visible:outline-mfg motion:transition-[border-color]"
             >
               <div class="glow-tile" :style="glow(b)"></div>
               <div class="relative flex items-start justify-between">
@@ -327,39 +393,10 @@ function onKey(e: KeyboardEvent) {
                     :hidden="!src(b)"
                   />{{ src(b) ? '' : letter(b) }}</span
                 >
-                <svg
-                  v-show="isPinned(b)"
-                  width="13"
-                  height="13"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                  class="m-1 flex-none text-mfg group-hover:hidden"
-                >
-                  <use href="#i-pin" />
-                </svg>
-                <button
-                  type="button"
-                  aria-label="More"
-                  data-more
-                  class="-mt-1 -mr-1 hidden size-[26px] place-items-center rounded-md bg-card text-mfg group-hover:grid group-focus-visible:grid hover:bg-accent2 hover:text-fg"
-                >
-                  <svg
-                    width="15"
-                    height="15"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.75"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <use href="#i-ellipsis" />
-                  </svg>
-                </button>
+                <i
+                  class="pin size-[13px] m-1 flex-none text-mfg group-hover:hidden group-data-hot:hidden"
+                  :hidden="!isPinned(b)"
+                ></i>
               </div>
               <div class="relative min-w-0">
                 <div class="truncate text-[13px] font-medium">{{ b.title }}</div>
@@ -377,7 +414,7 @@ function onKey(e: KeyboardEvent) {
               :key="b.id"
               :href="b.url"
               :data-bid="b.id"
-              class="group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-lg pr-1.5 pl-2.5 hover:bg-accent focus-visible:outline-2 focus-visible:outline-mfg"
+              class="group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-lg pr-1.5 pl-2.5 hover:bg-accent hover:pr-11 data-hot:bg-accent data-hot:pr-11 focus-visible:outline-2 focus-visible:outline-mfg"
             >
               <div class="glow-row" :style="glow(b)"></div>
               <span
@@ -395,43 +432,13 @@ function onKey(e: KeyboardEvent) {
                 />{{ src(b) ? '' : letter(b) }}</span
               >
               <div class="relative min-w-0 flex-[0_1_auto] truncate text-[13.5px] font-medium">{{ b.title }}</div>
-              <svg
-                v-show="isPinned(b)"
-                width="12"
-                height="12"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-                class="relative flex-none text-mfg"
-              >
-                <use href="#i-pin" />
-              </svg>
+              <i class="pin size-[12px] relative flex-none text-mfg" :hidden="!isPinned(b)"></i>
               <div class="relative min-w-0 flex-1 truncate text-[12.5px] text-mfg">{{ b.host }}</div>
-              <div class="relative font-mono text-[11px] whitespace-nowrap text-mfg group-hover:hidden">
+              <div
+                class="relative font-mono text-[11px] whitespace-nowrap text-mfg group-hover:hidden group-data-hot:hidden"
+              >
                 {{ metaText(b, s.meta) }}
               </div>
-              <button
-                type="button"
-                aria-label="More"
-                data-more
-                class="relative hidden size-7 place-items-center rounded-md text-mfg group-hover:grid hover:bg-accent2 hover:text-fg"
-              >
-                <svg
-                  width="15"
-                  height="15"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <use href="#i-ellipsis" />
-                </svg>
-              </button>
             </a>
           </div>
           <div v-else :data-dnd="s.draggable ? '' : undefined">
@@ -440,7 +447,7 @@ function onKey(e: KeyboardEvent) {
               :key="b.id"
               :href="b.url"
               :data-bid="b.id"
-              class="group relative flex h-[30px] break-inside-avoid items-center gap-2.5 rounded-md pr-1 pl-2 focus-visible:outline-2 focus-visible:outline-mfg"
+              class="group relative flex h-[30px] break-inside-avoid items-center gap-2.5 rounded-md pr-1 pl-2 hover:pr-9 focus-visible:outline-2 data-hot:pr-9 focus-visible:outline-mfg"
               :style="glow(b)"
             >
               <div class="hov"></div>
@@ -459,39 +466,7 @@ function onKey(e: KeyboardEvent) {
                 />{{ src(b) ? '' : letter(b) }}</span
               >
               <div class="relative min-w-0 flex-[0_1_auto] truncate text-[13.5px]">{{ b.title }}</div>
-              <svg
-                v-show="isPinned(b)"
-                width="11"
-                height="11"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-                class="relative flex-none text-mfg"
-              >
-                <use href="#i-pin" />
-              </svg>
-              <button
-                type="button"
-                aria-label="More"
-                data-more
-                class="relative ml-auto hidden size-[22px] flex-none place-items-center rounded text-mfg group-hover:grid hover:text-fg"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <use href="#i-ellipsis" />
-                </svg>
-              </button>
+              <i class="pin size-[11px] relative flex-none text-mfg" :hidden="!isPinned(b)"></i>
             </a>
           </div>
         </section>
@@ -504,6 +479,35 @@ function onKey(e: KeyboardEvent) {
           }}
         </div>
       </div>
+      <button
+        ref="more"
+        type="button"
+        aria-label="More"
+        data-more
+        tabindex="-1"
+        hidden
+        class="absolute z-10 grid place-items-center text-mfg hover:text-fg"
+        :class="
+          settings.density === 'tiles'
+            ? 'size-[26px] rounded-md bg-card hover:bg-accent2'
+            : settings.density === 'list'
+              ? 'size-7 rounded-md hover:bg-accent2'
+              : 'size-[22px] rounded'
+        "
+      >
+        <svg
+          width="15"
+          height="15"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <use href="#i-ellipsis" />
+        </svg>
+      </button>
     </div>
   </main>
 </template>
