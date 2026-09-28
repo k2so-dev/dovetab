@@ -33,6 +33,15 @@ watch(
       sel.value = 0
     }
   },
+  { immediate: true },
+)
+watch(
+  () => ui.seed,
+  (seed) => {
+    if (!seed || !ui.palette) return
+    q.value += seed
+    ui.seed = ''
+  },
 )
 
 let timer: ReturnType<typeof setTimeout> | undefined

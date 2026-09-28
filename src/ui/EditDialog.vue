@@ -8,7 +8,8 @@ import FavIcon from './FavIcon.vue'
 import Icon from './Icon.vue'
 import Modal from './Modal.vue'
 
-const e = computed(() => ui.edit)
+let last: typeof ui.edit = null
+const e = computed(() => (last = ui.edit ?? last))
 const isFolder = computed(() => e.value?.mode === 'new-folder' || e.value?.mode === 'rename-folder')
 const heading = computed(
   () =>

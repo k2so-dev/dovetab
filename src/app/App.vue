@@ -1,14 +1,32 @@
 <script setup lang="ts" vapor>
-import { onMounted, onUnmounted } from 'vue'
+import { computed, defineVaporAsyncComponent, onMounted, onUnmounted } from 'vue'
+import { later } from '@/core/platform'
 import { parseUrl, pasteBookmark, ui } from '@/core/ui'
-import ConfirmDialog from '@/ui/ConfirmDialog.vue'
 import Content from '@/ui/Content.vue'
 import ContextMenu from '@/ui/ContextMenu.vue'
-import EditDialog from '@/ui/EditDialog.vue'
-import Palette from '@/ui/Palette.vue'
-import SettingsDialog from '@/ui/SettingsDialog.vue'
 import Sidebar from '@/ui/Sidebar.vue'
 import Toast from '@/ui/Toast.vue'
+
+const loaders = {
+  palette: () => import('@/ui/Palette.vue'),
+  edit: () => import('@/ui/EditDialog.vue'),
+  confirm: () => import('@/ui/ConfirmDialog.vue'),
+  settings: () => import('@/ui/SettingsDialog.vue'),
+}
+const Palette = defineVaporAsyncComponent(loaders.palette)
+const EditDialog = defineVaporAsyncComponent(loaders.edit)
+const ConfirmDialog = defineVaporAsyncComponent(loaders.confirm)
+const SettingsDialog = defineVaporAsyncComponent(loaders.settings)
+
+const seen = { palette: false, edit: false, confirm: false, settings: false }
+const latch = (k: keyof typeof seen, open: boolean) => (seen[k] ||= open)
+const need = computed(() => ({
+  palette: latch('palette', ui.palette),
+  edit: latch('edit', !!ui.edit),
+  confirm: latch('confirm', !!ui.confirm),
+  settings: latch('settings', ui.settings),
+}))
+later(() => Object.values(loaders).forEach((l) => void l()))
 
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))
@@ -23,6 +41,11 @@ function onKey(e: KeyboardEvent) {
   }
   if (e.key === 'Escape' && ui.menu) {
     ui.menu = null
+    return
+  }
+  if (ui.palette && !typing(e.target) && e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault()
+    ui.seed += e.key
     return
   }
   if (anyOverlay() || ui.menu || typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
@@ -68,9 +91,9 @@ onUnmounted(() => {
     <Content />
   </div>
   <ContextMenu />
-  <Palette />
-  <EditDialog />
-  <ConfirmDialog />
-  <SettingsDialog />
+  <Palette v-if="need.palette" />
+  <EditDialog v-if="need.edit" />
+  <ConfirmDialog v-if="need.confirm" />
+  <SettingsDialog v-if="need.settings" />
   <Toast />
 </template>
