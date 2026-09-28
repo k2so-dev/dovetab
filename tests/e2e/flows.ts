@@ -244,6 +244,23 @@ await step('settings persist across reload', async () => {
   assert.equal(await page.locator('h1').textContent(), 'Work')
 })
 
+await step('cached history visits render in the first frame', async () => {
+  await page.evaluate(async () => {
+    localStorage.setItem('shelf:visits', JSON.stringify([['https://alpha.test/', [3, Date.now() - 5 * 36e5]]]))
+    const { settings } = await chrome.storage.sync.get('settings')
+    await chrome.storage.sync.set({ settings: { ...settings, history: true, density: 'list' } })
+  })
+  await page.locator('nav [role=button]', { hasText: 'All bookmarks' }).click()
+  await page.reload()
+  const meta = tile('https://alpha.test/').locator('.font-mono')
+  assert.match((await meta.textContent({ timeout: 500 })) ?? '', /5h ago/)
+  await page.waitForFunction(() => !localStorage.getItem('shelf:visits'), null, { timeout: 5000 })
+  await page.evaluate(async () => {
+    const { settings } = await chrome.storage.sync.get('settings')
+    await chrome.storage.sync.set({ settings: { ...settings, history: false } })
+  })
+})
+
 await step('hidden tab drops offscreen sections after 5 minutes', async () => {
   await page.evaluate(async () => {
     const b = chrome.bookmarks
