@@ -40,15 +40,33 @@ interface IconRec {
   ts: number
 }
 const db = openStore<IconRec>('dovetab-icons', 'icons')
+interface AtlasRec {
+  blob: Blob
+  hosts: string[]
+  cell: number
+  ts: number
+}
+const atlasDb = openStore<AtlasRec>('dovetab-atlas', 'atlas')
+const ATLAS_KEY = 'dovetab:atlas'
+const ATLAS_COLS = 16
+const ATLAS_MAX = 512
+const ATLAS_TTL = 7 * 864e5
+export const atlas = shallowRef(new Map<string, string>())
+let atlasRec: AtlasRec | undefined
+let atlasImg: HTMLImageElement | undefined
+export const hasAtlas = () => !!localStorage.getItem(ATLAS_KEY)
 export const fetched = reactive(new Map<string, string>())
 const attempted = new Map<string, number>()
 export const iconsReady = shallowRef(false)
 const siteIconsOn = shallowRef(false)
 
 let defaultSig: Promise<string | null> = Promise.resolve(null)
+const NO_FAVICON_KEY = 'dovetab:nofavicon'
+const noFavicon = shallowRef(Date.now() - Number(localStorage.getItem(NO_FAVICON_KEY) ?? 0) < MISSING_TTL_DAYS * 864e5)
+const browserIcons = () => !isFirefox && !noFavicon.value
 
 export function initIcons(): Promise<void> {
-  if (!isFirefox) defaultSig = chromeDefaultSignature()
+  if (browserIcons()) defaultSig = chromeDefaultSignature()
   if (!settings.siteIcons) iconsReady.value = true
   const sync = async () => {
     siteIconsOn.value = settings.siteIcons && (await hasPermission({ origins: ['<all_urls>'] }))
@@ -60,7 +78,7 @@ export function initIcons(): Promise<void> {
     (m) => m && later(() => tint(m.bookmarks.values())),
     { immediate: true },
   )
-  return db
+  const cache = db
     .entries()
     .then((entries) => {
       for (const [host, rec] of entries) {
@@ -70,6 +88,88 @@ export function initIcons(): Promise<void> {
     })
     .catch(() => {})
     .finally(() => (iconsReady.value = true))
+  later(() => void buildAtlas(), 4000)
+  return Promise.all([cache, loadAtlas().catch(() => {})]).then(() => {})
+}
+
+async function loadAtlas() {
+  if (!settings.icons || !hasAtlas()) return
+  const rec = await atlasDb.get('atlas')
+  if (!rec) return
+  const url = URL.createObjectURL(rec.blob)
+  const img = new Image()
+  img.src = url
+  await img.decode()
+  atlasRec = rec
+  atlasImg = img
+  const rows = Math.ceil(rec.hosts.length / ATLAS_COLS)
+  const st = document.documentElement.style
+  st.setProperty('--atlas', `url(${url})`)
+  st.setProperty('--atlas-size', `${ATLAS_COLS * 100}% ${rows * 100}%`)
+  const pct = (i: number, n: number) => (n > 1 ? (i / (n - 1)) * 100 : 0)
+  atlas.value = new Map(
+    rec.hosts.map((h, i) => [h, `${pct(i % ATLAS_COLS, ATLAS_COLS)}% ${pct(Math.floor(i / ATLAS_COLS), rows)}%`]),
+  )
+}
+
+function dropAtlas(host: string) {
+  if (!atlas.value.has(host)) return
+  const m = new Map(atlas.value)
+  m.delete(host)
+  atlas.value = m
+  if (atlasRec) atlasRec.ts = 0
+}
+
+async function buildAtlas() {
+  if (!settings.icons) return
+  const cell = devicePixelRatio > 2 ? 64 : 48
+  const list = new Map<string, Bookmark>()
+  for (const b of model.value.bookmarks.values()) {
+    if (list.size >= ATLAS_MAX) break
+    if (!list.has(b.host) && colors.get(b.host)?.[0] === '#' && iconSrc(b)) list.set(b.host, b)
+  }
+  const prev = atlasRec && new Set(atlasRec.hosts)
+  if (
+    prev &&
+    atlasRec!.cell === cell &&
+    Date.now() - atlasRec!.ts < ATLAS_TTL &&
+    prev.size === list.size &&
+    [...list.keys()].every((h) => prev.has(h))
+  )
+    return
+  const items = [...list.values()]
+  const imgs = await Promise.all(
+    items.map(
+      (b) =>
+        new Promise<HTMLImageElement | null>((res) => {
+          const img = new Image()
+          img.onload = () => res(img.naturalWidth ? img : null)
+          img.onerror = () => res(null)
+          img.src = iconSrc(b) ?? ''
+        }),
+    ),
+  )
+  const sig = await defaultSig
+  const globe = (b: Bookmark, img: HTMLImageElement) => {
+    if (!sig || fetched.has(b.host)) return false
+    const px = pixelsOf(img)
+    return !!px && signature(px) === sig
+  }
+  const ok = items.flatMap((b, i) => (imgs[i] && !globe(b, imgs[i]) ? [[b, imgs[i]] as const] : []))
+  if (!ok.length) return
+  const cv = document.createElement('canvas')
+  cv.width = ATLAS_COLS * cell
+  cv.height = Math.ceil(ok.length / ATLAS_COLS) * cell
+  const g = cv.getContext('2d')!
+  g.imageSmoothingQuality = 'high'
+  ok.forEach(([b, img], i) => {
+    g.drawImage(img, (i % ATLAS_COLS) * cell + 1, Math.floor(i / ATLAS_COLS) * cell + 1, cell - 2, cell - 2)
+    if (!fetched.has(b.host) && img.naturalWidth < 32) maybeFetch(b)
+  })
+  const blob = await new Promise<Blob | null>((r) => cv.toBlob(r, 'image/png'))
+  if (!blob) return
+  await atlasDb.set('atlas', { blob, hosts: ok.map(([b]) => b.host), cell, ts: Date.now() })
+  localStorage.setItem(ATLAS_KEY, '1')
 }
 
 let tinting: Bookmark[] = []
@@ -97,10 +197,15 @@ function chromeDefaultSignature(): Promise<string | null> {
   return new Promise((res) => {
     const img = new Image()
     img.onload = () => {
+      localStorage.removeItem(NO_FAVICON_KEY)
       const px = pixelsOf(img)
       res(px && signature(px))
     }
-    img.onerror = () => res(null)
+    img.onerror = () => {
+      localStorage.setItem(NO_FAVICON_KEY, String(Date.now()))
+      noFavicon.value = true
+      res(null)
+    }
     img.src = chromeFavicon('https://dovetab.invalid/', 64)
   })
 }
@@ -108,7 +213,7 @@ function chromeDefaultSignature(): Promise<string | null> {
 export function iconSrc(b: Bookmark): string | null {
   const f = fetched.get(b.host)
   if (f) return f
-  if (!isFirefox && !isMissing(b.host)) return chromeFavicon(b.url, 64)
+  if (browserIcons() && !isMissing(b.host)) return chromeFavicon(b.url, 64)
   maybeFetch(b)
   return null
 }
@@ -149,6 +254,7 @@ export async function refreshIcon(b: Bookmark) {
   if (f) URL.revokeObjectURL(f)
   fetched.delete(b.host)
   attempted.delete(b.host)
+  dropAtlas(b.host)
   await db.del(b.host).catch(() => {})
   maybeFetch(b)
 }
@@ -159,7 +265,11 @@ export async function clearIconCache() {
   attempted.clear()
   colors.clear()
   localStorage.removeItem(COLORS_KEY)
-  await db.clear().catch(() => {})
+  localStorage.removeItem(ATLAS_KEY)
+  atlas.value = new Map()
+  atlasRec = atlasImg = undefined
+  document.documentElement.style.removeProperty('--atlas')
+  await Promise.all([db.clear(), atlasDb.clear()]).catch(() => {})
 }
 
 const queue: Bookmark[] = []
@@ -187,6 +297,7 @@ function pump() {
         attempted.set(b.host, Date.now())
         await db.set(b.host, { blob, ts: Date.now() }).catch(() => {})
         if (blob) {
+          dropAtlas(b.host)
           colors.delete(b.host)
           fetched.set(b.host, URL.createObjectURL(blob))
         }

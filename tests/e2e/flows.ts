@@ -294,6 +294,58 @@ await step('cached history visits render in the first frame', async () => {
   })
 })
 
+await step('site icons render from one atlas on the next open', async () => {
+  const png = await page.evaluate(() => {
+    const c = document.createElement('canvas')
+    c.width = c.height = 32
+    const g = c.getContext('2d')!
+    g.fillStyle = '#e11d48'
+    g.fillRect(0, 0, 32, 32)
+    return c.toDataURL('image/png').split(',')[1]!
+  })
+  await ctx.route(/^http:\/\/ico\d\.test\//, (r) =>
+    r.request().url().endsWith('/i.png')
+      ? r.fulfill({ contentType: 'image/png', body: Buffer.from(png, 'base64') })
+      : r.fulfill({ contentType: 'text/html', body: '<link rel=icon href=/i.png><title>x</title>' }),
+  )
+  const v = await ctx.newPage()
+  for (let i = 0; i < 3; i++) {
+    await v.goto(`http://ico${i}.test/`)
+    await v.waitForTimeout(300)
+  }
+  await v.close()
+  await page.evaluate(async () => {
+    for (let i = 0; i < 3; i++)
+      await chrome.bookmarks.create({ parentId: '1', title: `Ico ${i}`, url: `http://ico${i}.test/` })
+  })
+  await page.reload()
+  await page.waitForFunction(() => localStorage.getItem('dovetab:atlas'), null, { timeout: 15000 })
+  const favicons: string[] = []
+  page.on('request', (r) => r.url().includes('/_favicon/') && favicons.push(r.url()))
+  await page.reload()
+  const row = tile('http://ico1.test/')
+  assert.equal(await row.locator('.ico.atl').count(), 1)
+  assert.match((await row.locator('.ico').getAttribute('style')) ?? '', /--p/)
+  assert.ok(!favicons.some((u) => u.includes('ico1.test')), favicons.join())
+  page.removeAllListeners('request')
+})
+
+await step('falls back to letters when the browser has no favicon endpoint', async () => {
+  await page.evaluate(() => {
+    localStorage.setItem('dovetab:nofavicon', String(Date.now()))
+    localStorage.removeItem('dovetab:atlas')
+  })
+  const favicons: string[] = []
+  page.on('request', (r) => r.url().includes('/_favicon/') && favicons.push(r.url()))
+  await page.reload()
+  await tile('https://alpha.test/').waitFor()
+  await page.waitForTimeout(300)
+  assert.deepEqual(favicons, [])
+  assert.equal(((await tile('https://alpha.test/').locator('.ico').textContent()) ?? '').trim(), 'A')
+  page.removeAllListeners('request')
+  await page.evaluate(() => localStorage.removeItem('dovetab:nofavicon'))
+})
+
 await step('hidden tab drops offscreen sections after 5 minutes', async () => {
   await page.evaluate(async () => {
     const b = chrome.bookmarks

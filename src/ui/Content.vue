@@ -1,7 +1,7 @@
 <script setup lang="ts" vapor>
 import { computed, nextTick, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { loaded, model } from '@/core/bookmarks'
-import { colorFor, iconSrc, iconsReady, onIconError, onIconLoad } from '@/core/favicon'
+import { atlas, colorFor, iconSrc, iconsReady, onIconError, onIconLoad } from '@/core/favicon'
 import { modKey } from '@/core/platform'
 import { local, settings } from '@/core/settings'
 import type { Bookmark } from '@/core/tree'
@@ -19,9 +19,12 @@ const empty = computed(
   () => local.view !== RECO && local.view !== CLEAN && sections.value.every((s) => !s.items.length),
 )
 
-const src = (b: Bookmark) => (iconsReady.value && settings.icons ? iconSrc(b) : null)
+const at = (b: Bookmark) => (settings.icons ? atlas.value.get(b.host) : undefined)
+const src = (b: Bookmark) => (iconsReady.value && settings.icons && !at(b) ? iconSrc(b) : null)
+const has = (b: Bookmark) => !!(at(b) || src(b))
 const letter = (b: Bookmark) => (iconsReady.value ? (b.title.trim()[0] ?? b.host[0] ?? '?').toUpperCase() : '')
 const tint = (b: Bookmark) => (iconsReady.value ? colorFor(b.host) : 'var(--accent)')
+const face = (b: Bookmark) => (at(b) ? { '--p': at(b) } : src(b) ? undefined : { background: tint(b) })
 const glow = (b: Bookmark) => ({ '--c': colorFor(b.host) })
 
 const shown = shallowRef(new Set<string>())
@@ -114,8 +117,10 @@ function onImg(e: Event) {
   if (!(img instanceof HTMLImageElement)) return
   const hit = bookmarkOf(img)
   if (!hit) return
-  if (e.type === 'load') void onIconLoad(hit.b, img)
-  else onIconError(hit.b)
+  if (e.type === 'load') {
+    img.dataset.ok = ''
+    void onIconLoad(hit.b, img)
+  } else onIconError(hit.b)
 }
 
 onMounted(() => {
@@ -382,13 +387,14 @@ function onKey(e: KeyboardEvent) {
               <div class="glow-tile" :style="glow(b)"></div>
               <div class="relative flex items-start justify-between">
                 <span
-                  class="ico relative grid size-9 flex-none place-items-center rounded-[9px] text-base font-semibold"
-                  :class="
-                    src(b)
+                  class="ico relative grid size-9 flex-none place-items-center rounded-[9px] text-base font-semibold [--is:24px]"
+                  :class="[
+                    has(b)
                       ? 'bg-accent shadow-[inset_0_0_0_1px_var(--border)]'
-                      : 'text-white shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]'
-                  "
-                  :style="src(b) ? undefined : { background: tint(b) }"
+                      : 'text-white shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]',
+                    at(b) && 'atl',
+                  ]"
+                  :style="face(b)"
                   ><img
                     class="size-6"
                     alt=""
@@ -397,7 +403,7 @@ function onKey(e: KeyboardEvent) {
                     draggable="false"
                     :src="src(b) ?? undefined"
                     :hidden="!src(b)"
-                  />{{ src(b) ? '' : letter(b) }}</span
+                  />{{ has(b) ? '' : letter(b) }}</span
                 >
                 <i
                   class="pin m-1 ml-auto size-[13px] flex-none text-mfg group-hover:hidden group-data-hot:hidden"
@@ -425,8 +431,8 @@ function onKey(e: KeyboardEvent) {
               <div class="glow-row" :style="glow(b)"></div>
               <span
                 class="ico relative grid size-[22px] flex-none place-items-center rounded-md text-[11px] font-semibold"
-                :class="src(b) ? '' : 'text-white shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]'"
-                :style="src(b) ? undefined : { background: tint(b) }"
+                :class="[has(b) ? '' : 'text-white shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]', at(b) && 'atl']"
+                :style="face(b)"
                 ><img
                   class="size-4"
                   alt=""
@@ -435,7 +441,7 @@ function onKey(e: KeyboardEvent) {
                   draggable="false"
                   :src="src(b) ?? undefined"
                   :hidden="!src(b)"
-                />{{ src(b) ? '' : letter(b) }}</span
+                />{{ has(b) ? '' : letter(b) }}</span
               >
               <div class="relative min-w-0 flex-[0_1_auto] truncate text-[13.5px] font-medium">{{ b.title }}</div>
               <i class="pin size-[12px] relative flex-none text-mfg" :hidden="!isPinned(b)"></i>
@@ -459,8 +465,8 @@ function onKey(e: KeyboardEvent) {
               <div class="hov"></div>
               <span
                 class="ico relative grid size-4 flex-none place-items-center rounded-[4px] text-[9.5px] font-semibold"
-                :class="src(b) ? '' : 'text-white shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]'"
-                :style="src(b) ? undefined : { background: tint(b) }"
+                :class="[has(b) ? '' : 'text-white shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]', at(b) && 'atl']"
+                :style="face(b)"
                 ><img
                   class="size-4"
                   alt=""
@@ -469,7 +475,7 @@ function onKey(e: KeyboardEvent) {
                   draggable="false"
                   :src="src(b) ?? undefined"
                   :hidden="!src(b)"
-                />{{ src(b) ? '' : letter(b) }}</span
+                />{{ has(b) ? '' : letter(b) }}</span
               >
               <div class="relative min-w-0 flex-[0_1_auto] truncate text-[13.5px]">{{ b.title }}</div>
               <i class="pin size-[11px] relative flex-none text-mfg" :hidden="!isPinned(b)"></i>

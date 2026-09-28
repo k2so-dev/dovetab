@@ -1,7 +1,7 @@
 import { createVaporApp } from 'vue'
 import App from '@/app/App.vue'
 import { refresh, watchBookmarks } from '@/core/bookmarks'
-import { initIcons } from '@/core/favicon'
+import { hasAtlas, initIcons } from '@/core/favicon'
 import { initSettings, settings } from '@/core/settings'
 import { initUsage } from '@/core/usage'
 import { sprite } from '@/ui/icons.gen'
@@ -15,5 +15,6 @@ const icons = initIcons()
 initUsage()
 
 const mount = () => void createVaporApp(App).mount('#app')
-if (settings.siteIcons) void Promise.race([icons, new Promise((r) => setTimeout(r, 150))]).then(mount)
+if (settings.siteIcons || (settings.icons && hasAtlas()))
+  void Promise.race([icons, new Promise((r) => setTimeout(r, 150))]).then(mount)
 else mount()

@@ -203,6 +203,23 @@ section.sec {
   display: none;
 }
 
+.atl::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: var(--is, 16px);
+  height: var(--is, 16px);
+  background: var(--atlas) var(--p) / var(--atlas-size) no-repeat;
+}
+
+[data-motion='on'] main .ico > img {
+  transition: opacity 0.15s;
+}
+[data-motion='on'] main .ico > img:not([data-ok]) {
+  opacity: 0;
+}
+
 [data-width='narrow'] .wrap {
   max-width: 1360px;
   margin-inline: auto;
