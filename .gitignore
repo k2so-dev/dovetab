@@ -1,0 +1,8 @@
+node_modules
+.output
+.wxt
+stats.html
+*.log
+tests/e2e/.shots
+CLAUDE.local.md
+.DS_Store

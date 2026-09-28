@@ -1,0 +1,4 @@
+.output
+.wxt
+src/ui/icons.gen.ts
+pnpm-lock.yaml
