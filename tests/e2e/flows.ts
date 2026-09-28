@@ -206,7 +206,7 @@ await step('narrow width centers content', async () => {
     .locator('main .wrap')
     .last()
     .evaluate((el) => el.getBoundingClientRect().width)
-  assert.ok(w <= 1200, `wrap is ${w}px`)
+  assert.ok(w <= 1360, `wrap is ${w}px`)
   await page.setViewportSize({ width: 1400, height: 900 })
 })
 

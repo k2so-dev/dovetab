@@ -105,7 +105,7 @@ function onKey(e: KeyboardEvent) {
   <main ref="main" class="h-screen min-w-0 overflow-auto" @keydown="onKey">
     <Header />
     <div class="px-9 pt-1.5 pb-20">
-      <div class="wrap" :class="columns && 'columns-[240px] gap-x-9'">
+      <div class="wrap" :class="columns && 'columns-[260px] gap-x-9'">
         <section
           v-for="s in sections"
           :key="s.key"
