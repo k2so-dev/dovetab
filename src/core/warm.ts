@@ -3,14 +3,13 @@ const DELAY = 60
 
 const links = new Map<string, HTMLLinkElement>()
 
-function hint(rel: 'dns-prefetch' | 'preconnect', origin: string) {
-  const key = `${rel} ${origin}`
-  if (links.has(key)) return
+function prefetch(origin: string) {
+  if (links.has(origin)) return
   const l = document.createElement('link')
-  l.rel = rel
+  l.rel = 'dns-prefetch'
   l.href = origin
   document.head.append(l)
-  links.set(key, l)
+  links.set(origin, l)
   if (links.size > MAX) {
     const [k, old] = links.entries().next().value!
     old.remove()
@@ -33,20 +32,14 @@ export function initWarmup(root: HTMLElement): () => void {
   const over = (e: PointerEvent) => {
     clearTimeout(timer)
     const o = originOf(e.target)
-    if (o) timer = setTimeout(() => hint('dns-prefetch', o), DELAY)
+    if (o) timer = setTimeout(() => prefetch(o), DELAY)
   }
   const out = () => clearTimeout(timer)
-  const down = (e: PointerEvent) => {
-    const o = originOf(e.target)
-    if (o) hint('preconnect', o)
-  }
   root.addEventListener('pointerover', over)
   root.addEventListener('pointerout', out)
-  root.addEventListener('pointerdown', down)
   return () => {
     clearTimeout(timer)
     root.removeEventListener('pointerover', over)
     root.removeEventListener('pointerout', out)
-    root.removeEventListener('pointerdown', down)
   }
 }

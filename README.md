@@ -17,7 +17,7 @@ Your browser bookmarks on the new tab page. Fast, private, open source. Chrome a
 
 Shelf has no servers, no analytics, no telemetry and makes no network requests of its own.
 
-The optional "Warm up links on hover" setting (off by default) lets the browser resolve a bookmark's domain when you hover it, and open a connection when you press it, so the page loads sooner. Your DNS resolver sees these lookups, as it would when you open the link.
+The optional "Warm up links on hover" setting (off by default) lets the browser resolve a bookmark's domain when you hover it, so the page starts loading sooner. Your DNS resolver sees these lookups, as it would when you open the link.
 
 | Data                      | Where it lives                                                             |
 | ------------------------- | -------------------------------------------------------------------------- |
