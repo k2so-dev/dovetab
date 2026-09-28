@@ -18,7 +18,7 @@ const gridClass = computed(
   () =>
     ({
       tiles: 'grid grid-cols-[repeat(auto-fill,minmax(136px,1fr))] gap-2.5',
-      list: 'grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-x-4 gap-y-0.5',
+      list: 'grid grid-cols-[repeat(auto-fill,minmax(256px,1fr))] gap-x-4 gap-y-0.5',
       columns: '',
     })[settings.density],
 )
