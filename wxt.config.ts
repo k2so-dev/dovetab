@@ -22,7 +22,7 @@ export default defineConfig({
     }),
   }),
   zip: {
-    excludeSources: ['CLAUDE.local.md', 'tests/e2e/.shots/**'],
+    excludeSources: ['*.local.md', 'tests/e2e/.shots/**'],
   },
   vite: () => ({
     plugins: [vue({ features: { optionsAPI: false, vapor: true } }), tailwindcss()],
