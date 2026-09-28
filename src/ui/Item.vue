@@ -52,6 +52,7 @@ function onDragEnd() {
   <a
     v-if="settings.density === 'tiles'"
     :href="b.url"
+    :data-bid="b.id"
     class="group relative flex h-[108px] flex-col justify-between overflow-hidden rounded-xl border bg-card p-[13px] shadow-tile outline-offset-2 focus-visible:outline-2 focus-visible:outline-mfg motion:transition-[border-color]"
     :class="[
       'border-border hover:border-accent2',
@@ -88,6 +89,7 @@ function onDragEnd() {
   <a
     v-else-if="settings.density === 'list'"
     :href="b.url"
+    :data-bid="b.id"
     class="group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-lg pr-1.5 pl-2.5 hover:bg-accent focus-visible:outline-2 focus-visible:outline-mfg"
     :class="[ui.drag === b.id && 'opacity-40', dropping && 'outline-2 outline-mfg']"
     @click="onBookmarkClick($event, b)"
@@ -119,8 +121,10 @@ function onDragEnd() {
   <a
     v-else
     :href="b.url"
-    class="-mx-1.5 flex h-[30px] items-center gap-2.5 rounded-md px-1.5 hover:bg-accent focus-visible:outline-2 focus-visible:outline-mfg"
+    :data-bid="b.id"
+    class="group relative flex h-[30px] break-inside-avoid items-center gap-2.5 rounded-md pr-1 pl-2 focus-visible:outline-2 focus-visible:outline-mfg"
     :class="[ui.drag === b.id && 'opacity-40', dropping && 'outline-2 outline-mfg']"
+    :style="glow"
     @click="onBookmarkClick($event, b)"
     @auxclick="onBookmarkClick($event, b)"
     @contextmenu="onContext"
@@ -129,8 +133,17 @@ function onDragEnd() {
     @drop="onDrop"
     @dragend="onDragEnd"
   >
+    <div class="hov"></div>
     <FavIcon :b="b" :size="16" />
-    <div class="min-w-0 flex-[0_1_auto] truncate text-[13.5px]">{{ b.title }}</div>
-    <Icon v-if="pinned" name="pin" :size="11" :stroke="2" class="text-mfg" />
+    <div class="relative min-w-0 flex-[0_1_auto] truncate text-[13.5px]">{{ b.title }}</div>
+    <Icon v-if="pinned" name="pin" :size="11" :stroke="2" class="relative text-mfg" />
+    <button
+      type="button"
+      aria-label="More"
+      class="relative ml-auto hidden size-[22px] flex-none place-items-center rounded text-mfg group-hover:grid hover:text-fg"
+      @click="onMore"
+    >
+      <Icon name="ellipsis" :size="14" />
+    </button>
   </a>
 </template>
