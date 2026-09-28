@@ -1,6 +1,6 @@
 <script setup lang="ts" vapor>
 import { onMounted, onUnmounted } from 'vue'
-import { ui } from '@/core/ui'
+import { parseUrl, pasteBookmark, ui } from '@/core/ui'
 import ConfirmDialog from '@/ui/ConfirmDialog.vue'
 import Content from '@/ui/Content.vue'
 import ContextMenu from '@/ui/ContextMenu.vue'
@@ -26,6 +26,14 @@ function onKey(e: KeyboardEvent) {
     return
   }
   if (anyOverlay() || ui.menu || typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
+  if (e.key === 'ArrowDown' && !(e.target instanceof Element && e.target.closest('a[data-bid], nav'))) {
+    const first = document.querySelector<HTMLElement>('main a[data-bid]')
+    if (first) {
+      e.preventDefault()
+      first.focus()
+    }
+    return
+  }
   if (e.key === '/') {
     e.preventDefault()
     ui.palette = true
@@ -36,8 +44,22 @@ function onKey(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onKey))
-onUnmounted(() => window.removeEventListener('keydown', onKey))
+function onPaste(e: ClipboardEvent) {
+  if (anyOverlay() || ui.menu || typing(e.target)) return
+  const url = parseUrl(e.clipboardData?.getData('text/plain') ?? '')
+  if (!url) return
+  e.preventDefault()
+  pasteBookmark(url)
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKey)
+  window.addEventListener('paste', onPaste)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKey)
+  window.removeEventListener('paste', onPaste)
+})
 </script>
 
 <template>

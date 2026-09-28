@@ -3,9 +3,9 @@ import { createBookmark, model, moveBookmark, removeNode, updateBookmark } from 
 import { refreshIcon } from './favicon'
 import { openMany, openUrl } from './platform'
 import { local, settings, toggleIn } from './settings'
-import { descendants, type Bookmark, type Folder } from './tree'
+import { descendants, hostOf, type Bookmark, type Folder } from './tree'
 import { recordOpen } from './usage'
-import { ALL, go } from './view'
+import { ALL, extraCopies, go, staleItems } from './view'
 
 export interface EditState {
   mode: 'edit' | 'new' | 'new-folder' | 'rename-folder'
@@ -76,6 +76,48 @@ export async function deleteBookmark(b: Bookmark) {
   ui.edit = null
   const restore = await removeNode(b.id)
   toast(`Deleted “${b.title}”`, restore)
+}
+
+export async function deleteMany(bs: Bookmark[]) {
+  const restores: (() => Promise<unknown>)[] = []
+  for (const b of bs) restores.push(await removeNode(b.id))
+  toast(`Deleted ${bs.length} bookmark${bs.length === 1 ? '' : 's'}`, async () => {
+    for (const r of restores.reverse()) await r()
+  })
+}
+
+export function runCleanup(kind: 'dupes' | 'stale') {
+  if (kind === 'dupes') return deleteMany([...extraCopies.value])
+  const items = [...staleItems.value]
+  ui.confirm = {
+    title: `Delete ${items.length} old bookmark${items.length === 1 ? '' : 's'}?`,
+    body: 'They were added more than 6 months ago and never opened. You can undo right after.',
+    action: 'Delete all',
+    run: () => {
+      ui.confirm = null
+      return deleteMany(items)
+    },
+  }
+}
+
+export function pasteBookmark(url: string) {
+  const m = model.value
+  const parentId = m.folders.has(local.view) ? local.view : m.roots[0]
+  if (!parentId) return
+  closeOverlays()
+  ui.edit = { mode: 'new', parentId, title: hostOf(url), url }
+}
+
+export function parseUrl(text: string): string | null {
+  const s = text.trim()
+  if (!s || /\s/.test(s)) return null
+  try {
+    const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(s) ? s : 'https://' + s)
+    if (!/^https?:$/.test(u.protocol) || !/\.[a-z]{2,}$|^localhost$/i.test(u.hostname)) return null
+    return u.href
+  } catch {
+    return null
+  }
 }
 
 export function deleteFolder(f: Folder) {
