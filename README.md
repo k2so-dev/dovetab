@@ -2,7 +2,7 @@
 
 Your browser bookmarks on the new tab page. Fast, private, open source. Chrome and Firefox.
 
-- Bookmarks as tiles, list or dense columns, with a soft glow tinted by each site's icon
+- Bookmarks as tiles, list or dense columns, with a soft glow tinted by each site's icon (icons themselves can be turned off; the glow stays)
 - Folder tree sidebar, breadcrumbs, one section per subfolder
 - Full or narrow content width
 - Recommended: ranks what you open most and most recently, plus newly added bookmarks

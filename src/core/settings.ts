@@ -6,6 +6,7 @@ export interface Settings {
   theme: 'system' | 'light' | 'dark'
   density: 'tiles' | 'list' | 'columns'
   width: 'full' | 'narrow'
+  icons: boolean
   glow: 'off' | 'subtle' | 'normal'
   animations: boolean | null
   sort: SortKey
@@ -27,6 +28,7 @@ const DEFAULTS: Settings = {
   theme: 'system',
   density: 'list',
   width: 'full',
+  icons: true,
   glow: 'subtle',
   animations: null,
   sort: 'browser',
@@ -67,6 +69,7 @@ function apply() {
   d.glow = settings.glow
   d.density = settings.density
   d.width = settings.width
+  d.icons = settings.icons ? 'on' : 'off'
   d.motion = animationsOn() ? 'on' : 'off'
 }
 

@@ -1,7 +1,8 @@
 import { reactive, shallowRef, watch } from 'vue'
+import { model } from './bookmarks'
 import { dominantColor, hashColor, pixelsOf, signature } from './color'
 import { openStore } from './idb'
-import { chromeFavicon, hasPermission, isFirefox } from './platform'
+import { chromeFavicon, hasPermission, isFirefox, later } from './platform'
 import { settings } from './settings'
 import type { Bookmark } from './tree'
 
@@ -54,6 +55,11 @@ export function initIcons(): Promise<void> {
   }
   void sync()
   watch(() => settings.siteIcons, sync)
+  watch(
+    () => !settings.icons && iconsReady.value && model.value,
+    (m) => m && later(() => tint(m.bookmarks.values())),
+    { immediate: true },
+  )
   return db
     .entries()
     .then((entries) => {
@@ -64,6 +70,27 @@ export function initIcons(): Promise<void> {
     })
     .catch(() => {})
     .finally(() => (iconsReady.value = true))
+}
+
+let tinting: Bookmark[] = []
+function tint(bookmarks: Iterable<Bookmark>) {
+  const hosts = new Map<string, Bookmark>()
+  for (const b of bookmarks) if (!colors.has(b.host)) hosts.set(b.host, b)
+  const start = !tinting.length
+  tinting = [...hosts.values()]
+  if (start) tintStep()
+}
+function tintStep() {
+  for (const b of tinting.splice(0, 8)) {
+    const url = settings.icons || colors.has(b.host) ? null : iconSrc(b)
+    if (!url) continue
+    const img = new Image()
+    img.decoding = 'async'
+    img.onload = () => void onIconLoad(b, img)
+    img.onerror = () => onIconError(b)
+    img.src = url
+  }
+  if (tinting.length) requestIdleCallback(tintStep)
 }
 
 function chromeDefaultSignature(): Promise<string | null> {

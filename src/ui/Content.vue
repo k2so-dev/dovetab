@@ -19,7 +19,7 @@ const empty = computed(
   () => local.view !== RECO && local.view !== CLEAN && sections.value.every((s) => !s.items.length),
 )
 
-const src = (b: Bookmark) => (iconsReady.value ? iconSrc(b) : null)
+const src = (b: Bookmark) => (iconsReady.value && settings.icons ? iconSrc(b) : null)
 const letter = (b: Bookmark) => (iconsReady.value ? (b.title.trim()[0] ?? b.host[0] ?? '?').toUpperCase() : '')
 const tint = (b: Bookmark) => (iconsReady.value ? colorFor(b.host) : 'var(--accent)')
 const glow = (b: Bookmark) => ({ '--c': colorFor(b.host) })
@@ -382,7 +382,7 @@ function onKey(e: KeyboardEvent) {
               <div class="glow-tile" :style="glow(b)"></div>
               <div class="relative flex items-start justify-between">
                 <span
-                  class="relative grid size-9 flex-none place-items-center rounded-[9px] text-base font-semibold"
+                  class="ico relative grid size-9 flex-none place-items-center rounded-[9px] text-base font-semibold"
                   :class="
                     src(b)
                       ? 'bg-accent shadow-[inset_0_0_0_1px_var(--border)]'
@@ -400,7 +400,7 @@ function onKey(e: KeyboardEvent) {
                   />{{ src(b) ? '' : letter(b) }}</span
                 >
                 <i
-                  class="pin size-[13px] m-1 flex-none text-mfg group-hover:hidden group-data-hot:hidden"
+                  class="pin m-1 ml-auto size-[13px] flex-none text-mfg group-hover:hidden group-data-hot:hidden"
                   :hidden="!isPinned(b)"
                 ></i>
               </div>
@@ -424,7 +424,7 @@ function onKey(e: KeyboardEvent) {
             >
               <div class="glow-row" :style="glow(b)"></div>
               <span
-                class="relative grid size-[22px] flex-none place-items-center rounded-md text-[11px] font-semibold"
+                class="ico relative grid size-[22px] flex-none place-items-center rounded-md text-[11px] font-semibold"
                 :class="src(b) ? '' : 'text-white shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]'"
                 :style="src(b) ? undefined : { background: tint(b) }"
                 ><img
@@ -458,7 +458,7 @@ function onKey(e: KeyboardEvent) {
             >
               <div class="hov"></div>
               <span
-                class="relative grid size-4 flex-none place-items-center rounded-[4px] text-[9.5px] font-semibold"
+                class="ico relative grid size-4 flex-none place-items-center rounded-[4px] text-[9.5px] font-semibold"
                 :class="src(b) ? '' : 'text-white shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]'"
                 :style="src(b) ? undefined : { background: tint(b) }"
                 ><img

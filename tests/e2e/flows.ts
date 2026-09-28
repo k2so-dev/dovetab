@@ -244,10 +244,27 @@ await step('settings persist across reload', async () => {
   assert.equal(await page.locator('h1').textContent(), 'Work')
 })
 
+await step('show icons off hides icons but keeps the glow', async () => {
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: /Show icons/ }).click()
+  await page.keyboard.press('Escape')
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.icons), 'off')
+  const row = tile('https://alpha.test/')
+  assert.equal(await row.locator('.ico').isVisible(), false)
+  assert.equal(await row.locator('img').getAttribute('src'), null)
+  assert.match((await row.locator('.glow-tile, .glow-row').getAttribute('style')) ?? '', /--c/)
+  await page.reload()
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.icons), 'off')
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: /Show icons/ }).click()
+  await page.keyboard.press('Escape')
+  await row.locator('.ico').waitFor()
+})
+
 await step('cached history visits render in the first frame', async () => {
   await page.evaluate(async () => {
     localStorage.setItem('shelf:visits', JSON.stringify([['https://alpha.test/', [3, Date.now() - 5 * 36e5]]]))
-    const { settings } = await chrome.storage.sync.get('settings')
+    const { settings } = (await chrome.storage.sync.get('settings')) as { settings: object }
     await chrome.storage.sync.set({ settings: { ...settings, history: true, density: 'list' } })
   })
   await page.locator('nav [role=button]', { hasText: 'All bookmarks' }).click()
@@ -256,7 +273,7 @@ await step('cached history visits render in the first frame', async () => {
   assert.match((await meta.textContent({ timeout: 500 })) ?? '', /5h ago/)
   await page.waitForFunction(() => !localStorage.getItem('shelf:visits'), null, { timeout: 5000 })
   await page.evaluate(async () => {
-    const { settings } = await chrome.storage.sync.get('settings')
+    const { settings } = (await chrome.storage.sync.get('settings')) as { settings: object }
     await chrome.storage.sync.set({ settings: { ...settings, history: false } })
   })
 })

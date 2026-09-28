@@ -108,6 +108,19 @@ function resetStats() {
             ]"
           />
         </div>
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-4 py-2.5 text-left"
+          @click="settings.icons = !settings.icons"
+        >
+          <div class="min-w-0">
+            <div class="text-[13.5px] font-medium">Show icons</div>
+            <div class="mt-0.5 text-[12.5px] text-pretty text-mfg">
+              Site icons next to bookmarks. When off, cards keep their color glow.
+            </div>
+          </div>
+          <Switch v-model="settings.icons" />
+        </button>
         <div class="flex items-center justify-between gap-4 py-2.5">
           <div class="min-w-0">
             <div class="text-[13.5px] font-medium">Icon glow</div>

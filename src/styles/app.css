@@ -199,6 +199,10 @@ section.sec {
   content-visibility: visible;
 }
 
+[data-icons='off'] .ico {
+  display: none;
+}
+
 [data-width='narrow'] .wrap {
   max-width: 1360px;
   margin-inline: auto;
