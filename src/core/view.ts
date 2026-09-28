@@ -267,9 +267,7 @@ export const treeRows = computed<TreeRow[]>(() => {
       open: false,
       folder: false,
     },
-  ]
-  if (cleanupCount.value || local.view === CLEAN)
-    rows.push({
+    {
       id: CLEAN,
       title: 'Cleanup',
       depth: 0,
@@ -278,7 +276,8 @@ export const treeRows = computed<TreeRow[]>(() => {
       hasKids: false,
       open: false,
       folder: false,
-    })
+    },
+  ]
   const base = rows.length
   const walk = (id: string) => {
     const f = m.folders.get(id)!
