@@ -5,7 +5,7 @@ import { hasAtlas, initIcons } from '@/core/favicon'
 import { initSettings, settings } from '@/core/settings'
 import { later } from '@/core/platform'
 import { fixRealm } from '@/core/realm'
-import { initUsage } from '@/core/usage'
+import { initUsage, recentOn } from '@/core/usage'
 import { sprite } from '@/ui/icons.gen'
 import '@/styles/app.css'
 
@@ -14,14 +14,17 @@ initSettings()
 watchBookmarks()
 void refresh()
 const icons = initIcons()
-initUsage()
+const visits = initUsage()
 
 const mount = () => {
   fixRealm()
   createVaporApp(App).mount('#app')
 }
-if (settings.siteIcons || (settings.icons && hasAtlas()))
-  void Promise.race([icons, new Promise((r) => setTimeout(r, 150))]).then(mount)
+const waits = [
+  ...(settings.siteIcons || (settings.icons && hasAtlas()) ? [icons] : []),
+  ...(recentOn() ? [visits] : []),
+]
+if (waits.length) void Promise.race([Promise.all(waits), new Promise((r) => setTimeout(r, 150))]).then(mount)
 else mount()
 addEventListener('load', fixRealm)
 later(fixRealm)

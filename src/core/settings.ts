@@ -14,6 +14,7 @@ export interface Settings {
   dir: 'asc' | 'desc'
   newTab: boolean
   history: boolean
+  recent: boolean
   siteIcons: boolean
   warmup: boolean
   pins: string[]
@@ -37,6 +38,7 @@ const DEFAULTS: Settings = {
   dir: 'asc',
   newTab: false,
   history: false,
+  recent: false,
   siteIcons: false,
   warmup: false,
   pins: [],

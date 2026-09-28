@@ -6,7 +6,7 @@ import { sortBookmarks, type SortCtx } from './sort'
 import { ancestors, descendants, type Bookmark, type Folder } from './tree'
 import { duplicates, stale } from './cleanup'
 import { later } from './platform'
-import { since, usageOf } from './usage'
+import { recent, recentOn, since, usageOf } from './usage'
 
 export const ALL = 'all'
 export const RECO = 'reco'
@@ -45,7 +45,7 @@ export const counts = computed(() => {
 
 export const totalCount = computed(() => model.value.roots.reduce((a, r) => a + (counts.value.get(r) ?? 0), 0))
 
-export type Meta = 'ago' | 'usage' | 'added' | 'folder'
+export type Meta = 'ago' | 'usage' | 'added' | 'folder' | 'visited'
 
 export interface Section {
   key: string
@@ -65,6 +65,7 @@ export function metaText(b: Bookmark, meta: Meta): string {
     const f = m.folders.get(b.parentId)
     return f ? [...ancestors(m, f.id).map((a) => a.title), f.title].join(' / ') : ''
   }
+  if (meta === 'visited') return ago(b.dateAdded)
   const u = usageOf(b.url)
   if (meta === 'added') return `added ${ago(b.dateAdded, NOW)}`
   if (meta === 'usage') {
@@ -204,6 +205,9 @@ function buildSections(): Section[] {
     if (fresh.length)
       out.push({ key: 'new', title: 'Recently added', path: '', items: fresh, meta: 'added', draggable: false })
   } else if (v === ALL || !m.folders.has(v)) {
+    const seen = recentOn() ? recent.value.filter((b) => !isHidden(b)) : []
+    if (seen.length)
+      out.push({ key: 'recent', title: 'Recently visited', path: '', items: seen, meta: 'visited', draggable: false })
     const top = recommended(8)
     if (top.length) out.push({ key: RECO, title: 'Recommended', path: '', items: top, meta: 'usage', draggable: false })
     m.roots.forEach((r) => folderSections(r, true))

@@ -7,6 +7,7 @@ import { local, settings } from '@/core/settings'
 import type { Bookmark } from '@/core/tree'
 import { deleteBookmark, dropOnBookmark, onBookmarkClick, runCleanup, ui } from '@/core/ui'
 import { CLEAN, RECO, go, isPinned, metaText, sections, type Section } from '@/core/view'
+import { recentOf } from '@/core/usage'
 import { initWarmup } from '@/core/warm'
 import Header from './Header.vue'
 
@@ -29,6 +30,14 @@ const glow = (b: Bookmark) => ({ '--c': colorFor(b.host) })
 
 const shown = shallowRef(new Set<string>())
 const width = shallowRef(Math.max(300, Math.min(window.innerWidth - 332, 1360)))
+
+const fit = computed(() => {
+  if (settings.density === 'columns') return 8
+  const [min, gap] = settings.density === 'tiles' ? [136, 10] : [256, 16]
+  const cols = Math.max(1, Math.floor((width.value + gap) / (min + gap)))
+  return Math.min(12, Math.max(1, Math.round(8 / cols)) * cols)
+})
+const rows = (s: Section) => (s.key === 'recent' ? s.items.slice(0, fit.value) : s.items)
 
 function firstBudget(): number {
   const h = window.innerHeight * 1.25
@@ -107,10 +116,12 @@ watch(
 
 const bookmarkOf = (t: EventTarget | null) => {
   const a = t instanceof Element ? t.closest<HTMLElement>('a[data-bid]') : null
-  const b = a ? model.value.bookmarks.get(a.dataset.bid!) : undefined
+  const id = a?.dataset.bid
+  const b = id ? (model.value.bookmarks.get(id) ?? recentOf(id)) : undefined
   return a && b ? { a, b } : null
 }
 const dnd = (a: HTMLElement) => !!a.closest('[data-dnd]')
+const isVisit = (a: HTMLElement) => a.dataset.bid!.startsWith('h:')
 
 function onImg(e: Event) {
   const img = e.target
@@ -163,6 +174,10 @@ function setHot(a: HTMLElement | null) {
     return
   }
   a.setAttribute('data-hot', '')
+  if (isVisit(a)) {
+    btn.hidden = true
+    return
+  }
   const [size, inset] = MORE[settings.density] ?? MORE.list!
   const r = a.getBoundingClientRect()
   const p = pad.value.getBoundingClientRect()
@@ -203,7 +218,7 @@ function onClick(e: MouseEvent) {
 }
 function onContext(e: MouseEvent) {
   const hit = bookmarkOf(e.target) ?? (onMore(e) ? bookmarkOf(hot) : null)
-  if (!hit) return
+  if (!hit || isVisit(hit.a)) return
   e.preventDefault()
   openMenu(hit.b, e.clientX, e.clientY)
 }
@@ -296,7 +311,7 @@ function onKey(e: KeyboardEvent) {
     e.preventDefault()
     const all = items()
     focusItem(e.key === 'Home' ? all[0] : all.at(-1))
-  } else if (e.key === 'Delete' || e.key === 'Backspace') {
+  } else if ((e.key === 'Delete' || e.key === 'Backspace') && !isVisit(el)) {
     e.preventDefault()
     e.stopPropagation()
     const all = items()
@@ -359,7 +374,7 @@ function onKey(e: KeyboardEvent) {
               {{ s.title }}
             </button>
             <span v-else class="flex-none text-[13px] font-semibold">{{ s.title }}</span>
-            <span class="ml-1 flex-none font-mono text-[11px] text-mfg">{{ s.items.length || '' }}</span>
+            <span class="ml-1 flex-none font-mono text-[11px] text-mfg">{{ rows(s).length || '' }}</span>
             <button
               v-if="s.action"
               type="button"
@@ -378,7 +393,7 @@ function onKey(e: KeyboardEvent) {
             :data-dnd="s.draggable ? '' : undefined"
           >
             <a
-              v-for="b in s.items"
+              v-for="b in rows(s)"
               :key="b.id"
               :href="b.url"
               :data-bid="b.id"
@@ -422,7 +437,7 @@ function onKey(e: KeyboardEvent) {
             :data-dnd="s.draggable ? '' : undefined"
           >
             <a
-              v-for="b in s.items"
+              v-for="b in rows(s)"
               :key="b.id"
               :href="b.url"
               :data-bid="b.id"
@@ -455,7 +470,7 @@ function onKey(e: KeyboardEvent) {
           </div>
           <div v-else :data-dnd="s.draggable ? '' : undefined">
             <a
-              v-for="b in s.items"
+              v-for="b in rows(s)"
               :key="b.id"
               :href="b.url"
               :data-bid="b.id"

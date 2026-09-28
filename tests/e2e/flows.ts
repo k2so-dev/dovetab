@@ -294,6 +294,54 @@ await step('cached history visits render in the first frame', async () => {
   })
 })
 
+await step('recently visited pages lead All bookmarks when enabled', async () => {
+  const p = await ctx.newPage()
+  p.on('pageerror', (e) => errors.push(String(e)))
+  await p.addInitScript(() => {
+    const now = Date.now()
+    type Api = { permissions: { contains: unknown }; history: unknown }
+    const g = globalThis as unknown as { chrome: Api; browser?: Api }
+    for (const c of [g.chrome, g.browser]) {
+      if (!c) continue
+      c.permissions.contains = async () => true
+      c.history = {
+        search: async () => [
+          { url: 'https://visited-a.test/', title: 'Visited A', lastVisitTime: now - 60e3, visitCount: 1 },
+          { url: 'chrome://settings/', title: 'Settings', lastVisitTime: now - 50e3, visitCount: 1 },
+          { url: 'https://visited-b.test/page', title: '', lastVisitTime: now - 3 * 36e5, visitCount: 2 },
+        ],
+      }
+    }
+  })
+  await p.goto(`chrome-extension://${id}/newtab.html`)
+  await p.evaluate(async () => {
+    const { settings } = (await chrome.storage.sync.get('settings')) as { settings: object }
+    await chrome.storage.sync.set({ settings: { ...settings, history: true, recent: true, density: 'list' } })
+  })
+  await p.locator('nav [role=button]', { hasText: 'All bookmarks' }).click()
+  await p.reload()
+  const first = p.locator('section').first()
+  assert.match((await first.textContent({ timeout: 500 })) ?? '', /Recently visited/)
+  const rows = first.locator('a[data-bid]')
+  assert.deepEqual(await rows.evaluateAll((as) => as.map((a) => a.getAttribute('href'))), [
+    'https://visited-a.test/',
+    'https://visited-b.test/page',
+  ])
+  assert.match((await rows.nth(1).textContent()) ?? '', /visited-b\.test[\s\S]*3h ago/)
+  await rows.first().click({ button: 'right' })
+  assert.equal(await p.locator('[role=menu]').count(), 0)
+  await p.evaluate(async () => {
+    const { settings } = (await chrome.storage.sync.get('settings')) as { settings: object }
+    await chrome.storage.sync.set({ settings: { ...settings, recent: false } })
+  })
+  await p.getByText('Recently visited').waitFor({ state: 'detached' })
+  await p.evaluate(async () => {
+    const { settings } = (await chrome.storage.sync.get('settings')) as { settings: object }
+    await chrome.storage.sync.set({ settings: { ...settings, history: false } })
+  })
+  await p.close()
+})
+
 await step('site icons render from one atlas on the next open', async () => {
   const png = await page.evaluate(() => {
     const c = document.createElement('canvas')

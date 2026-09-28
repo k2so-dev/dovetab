@@ -3,10 +3,13 @@ import { model } from './bookmarks'
 import { browser, hasPermission, later } from './platform'
 import { settings } from './settings'
 import type { Usage } from './score'
+import { hostOf, type Bookmark } from './tree'
 
 const KEY = 'dovetab:stats'
 const SINCE_KEY = 'dovetab:since'
 const VISITS_KEY = 'dovetab:visits'
+const RECENT_KEY = 'dovetab:recent'
+const RECENT_MAX = 12
 type Stats = Record<string, [number, number]>
 type Visits = Map<string, [number, number]>
 
@@ -91,12 +94,68 @@ async function loadHistory() {
   setVisits(m)
 }
 
-export function initUsage() {
+export const recentOn = () => settings.history && settings.recent
+
+const toBookmark = ([url, title, time]: [string, string, number], index: number): Bookmark => ({
+  id: `h:${url}`,
+  parentId: '',
+  title: title || hostOf(url),
+  url,
+  host: hostOf(url),
+  dateAdded: time,
+  index,
+})
+
+function readRecent(): Bookmark[] {
+  try {
+    return recentOn()
+      ? (JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]') as [string, string, number][]).map(toBookmark)
+      : []
+  } catch {
+    return []
+  }
+}
+
+export const recent = shallowRef<Bookmark[]>(readRecent())
+export const recentOf = (id: string) => recent.value.find((b) => b.id === id)
+
+function setRecent(rows: [string, string, number][]) {
+  const cur = recent.value
+  if (
+    rows.length === cur.length &&
+    rows.every(([u, t, v], i) => cur[i]!.url === u && cur[i]!.dateAdded === v && cur[i]!.title === (t || hostOf(u)))
+  )
+    return
+  recent.value = rows.map(toBookmark)
+  try {
+    if (rows.length) localStorage.setItem(RECENT_KEY, JSON.stringify(rows))
+    else localStorage.removeItem(RECENT_KEY)
+  } catch {}
+}
+
+export async function loadRecent() {
+  if (!recentOn() || !(await hasPermission({ permissions: ['history'] }))) return setRecent([])
+  const items = await browser.history.search({ text: '', startTime: Date.now() - 7 * 864e5, maxResults: 100 })
+  const rows: [string, string, number][] = []
+  const seen = new Set<string>()
+  for (const h of items.sort((a, b) => (b.lastVisitTime ?? 0) - (a.lastVisitTime ?? 0))) {
+    if (!h.url || !/^https?:/.test(h.url) || seen.has(h.url)) continue
+    seen.add(h.url)
+    rows.push([h.url, h.title ?? '', h.lastVisitTime ?? 0])
+    if (rows.length === RECENT_MAX) break
+  }
+  setRecent(rows)
+}
+
+export function initUsage(): Promise<void> {
   later(() => void loadHistory())
   watch(
     () => settings.history,
     () => void loadHistory(),
   )
+  watch(recentOn, () => void loadRecent())
+  document.addEventListener('visibilitychange', () => document.hidden || void loadRecent())
+  return loadRecent().catch(() => {})
 }
 
 export async function searchHistory(text: string, limit = 6) {

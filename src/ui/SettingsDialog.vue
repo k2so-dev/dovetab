@@ -186,6 +186,20 @@ function resetStats() {
           <Switch :model-value="settings.history && historyGranted" />
         </button>
         <button
+          v-if="settings.history && historyGranted"
+          type="button"
+          class="flex w-full items-center justify-between gap-4 py-2.5 text-left"
+          @click="settings.recent = !settings.recent"
+        >
+          <div class="min-w-0">
+            <div class="text-[13.5px] font-medium">Recently visited</div>
+            <div class="mt-0.5 max-w-[400px] text-[12.5px] text-pretty text-mfg">
+              Shows the last few pages you visited at the top of All bookmarks.
+            </div>
+          </div>
+          <Switch :model-value="settings.recent" />
+        </button>
+        <button
           type="button"
           class="flex w-full items-center justify-between gap-4 py-2.5 text-left"
           @click="toggleOptional('siteIcons')"
