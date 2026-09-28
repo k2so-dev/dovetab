@@ -22,6 +22,6 @@ export default defineConfig({
     }),
   }),
   vite: () => ({
-    plugins: [vue(), tailwindcss()],
+    plugins: [vue({ features: { optionsAPI: false, vapor: true } }), tailwindcss()],
   }),
 })
