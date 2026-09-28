@@ -2,7 +2,7 @@ import { reactive, shallowRef, watch } from 'vue'
 import { model } from './bookmarks'
 import { dominantColor, hashColor, pixelsOf, signature } from './color'
 import { openStore } from './idb'
-import { chromeFavicon, hasPermission, isFirefox, later } from './platform'
+import { chromeFavicon, hasPermission, idle, isFirefox, later } from './platform'
 import { settings } from './settings'
 import type { Bookmark } from './tree'
 
@@ -190,7 +190,7 @@ function tintStep() {
     img.onerror = () => onIconError(b)
     img.src = url
   }
-  if (tinting.length) requestIdleCallback(tintStep)
+  if (tinting.length) idle(tintStep)
 }
 
 function chromeDefaultSignature(): Promise<string | null> {
@@ -290,7 +290,6 @@ function pump() {
   while (running < CONCURRENCY && queue.length) {
     const b = queue.shift()!
     running++
-    const idle = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn) : setTimeout(fn))
     idle(async () => {
       try {
         const blob = await fetchIcon(b.url)

@@ -1,5 +1,5 @@
 import { shallowRef } from 'vue'
-import { browser, isFirefox } from './platform'
+import { browser, idle, isFirefox } from './platform'
 import { buildModel, type Model, type RawNode } from './tree'
 
 const SNAP_KEY = 'dovetab:snapshot'
@@ -32,7 +32,7 @@ export async function refresh() {
       localStorage.setItem(SNAP_KEY, JSON.stringify(tree.map(strip)))
     } catch {}
   }
-  'requestIdleCallback' in window ? requestIdleCallback(save) : setTimeout(save, 200)
+  idle(save)
 }
 
 let timer: ReturnType<typeof setTimeout> | undefined

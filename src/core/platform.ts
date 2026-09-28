@@ -76,6 +76,9 @@ export async function dropPermission(p: Perm) {
   } catch {}
 }
 
+export const idle = (fn: () => void) =>
+  'requestIdleCallback' in window ? requestIdleCallback(() => fn()) : setTimeout(fn, 50)
+
 export function later(fn: () => void, delay = 2000) {
   setTimeout(() => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: delay }) : fn()), delay)
 }
