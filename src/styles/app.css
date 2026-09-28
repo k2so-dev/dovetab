@@ -195,3 +195,26 @@ section.sec {
   content-visibility: auto;
   contain-intrinsic-size: auto 240px;
 }
+[data-density='columns'] section.sec {
+  content-visibility: visible;
+}
+
+[data-width='narrow'] .wrap {
+  max-width: 1200px;
+  margin-inline: auto;
+}
+
+.hov {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: color-mix(in srgb, var(--c, var(--mfg)) 9%, var(--accent));
+}
+:where(.group:hover, .group:focus-visible) > .hov {
+  opacity: 1;
+}
+[data-motion='on'] .hov {
+  transition: opacity 0.12s;
+}

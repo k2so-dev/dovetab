@@ -5,6 +5,7 @@ import type { SortKey } from './sort'
 export interface Settings {
   theme: 'system' | 'light' | 'dark'
   density: 'tiles' | 'list' | 'columns'
+  width: 'full' | 'narrow'
   glow: 'off' | 'subtle' | 'normal'
   animations: boolean | null
   sort: SortKey
@@ -12,6 +13,7 @@ export interface Settings {
   newTab: boolean
   history: boolean
   siteIcons: boolean
+  warmup: boolean
   pins: string[]
   hidden: string[]
 }
@@ -23,7 +25,8 @@ export interface LocalState {
 
 const DEFAULTS: Settings = {
   theme: 'system',
-  density: 'tiles',
+  density: 'list',
+  width: 'full',
   glow: 'subtle',
   animations: null,
   sort: 'browser',
@@ -31,6 +34,7 @@ const DEFAULTS: Settings = {
   newTab: false,
   history: false,
   siteIcons: false,
+  warmup: false,
   pins: [],
   hidden: [],
 }
@@ -62,6 +66,7 @@ function apply() {
   d.theme = settings.theme
   d.glow = settings.glow
   d.density = settings.density
+  d.width = settings.width
   d.motion = animationsOn() ? 'on' : 'off'
 }
 

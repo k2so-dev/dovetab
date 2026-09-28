@@ -97,6 +97,19 @@ function resetStats() {
         </div>
         <div class="flex items-center justify-between gap-4 py-2.5">
           <div class="min-w-0">
+            <div class="text-[13.5px] font-medium">Width</div>
+            <div class="mt-0.5 text-[12.5px] text-pretty text-mfg">Narrow keeps content centered on wide screens.</div>
+          </div>
+          <Segmented
+            v-model="settings.width"
+            :options="[
+              ['full', 'Full'],
+              ['narrow', 'Narrow'],
+            ]"
+          />
+        </div>
+        <div class="flex items-center justify-between gap-4 py-2.5">
+          <div class="min-w-0">
             <div class="text-[13.5px] font-medium">Icon glow</div>
             <div class="mt-0.5 text-[12.5px] text-pretty text-mfg">Soft tint from each site’s icon colors.</div>
           </div>
@@ -176,6 +189,21 @@ function resetStats() {
             </div>
           </div>
           <Switch v-model="settings.newTab" />
+        </button>
+
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-4 py-2.5 text-left"
+          @click="settings.warmup = !settings.warmup"
+        >
+          <div class="min-w-0">
+            <div class="text-[13.5px] font-medium">Warm up links on hover</div>
+            <div class="mt-0.5 max-w-[400px] text-[12.5px] text-pretty text-mfg">
+              Looks up the site's address when you hover a bookmark, so it opens faster. The site's DNS resolver sees
+              the lookup.
+            </div>
+          </div>
+          <Switch v-model="settings.warmup" />
         </button>
 
         <div class="mt-2 border-t border-border pt-[18px] pb-1.5 text-[11.5px] font-medium tracking-[.02em] text-mfg">
