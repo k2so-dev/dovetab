@@ -14,6 +14,8 @@ Your browser bookmarks on the new tab page. Fast, private, open source. Chrome a
 - System, light or dark theme; animations can be turned off
 - System fonts, no web fonts, no framework runtime beyond Vue Vapor (~50 KB JS gzipped)
 
+<img width="3200" height="2000" alt="Screenshot dovetab" src="https://github.com/user-attachments/assets/5b7b5253-9e7a-4fd3-8529-bd12f3b6b136" />
+
 ## Privacy
 
 Dovetab has no servers, no analytics, no telemetry and makes no network requests of its own, except when you press Upload or Download in Settings → Sync.
