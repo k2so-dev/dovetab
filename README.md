@@ -18,7 +18,7 @@ Your browser bookmarks on the new tab page. Fast, private, open source. Chrome a
 
 ## Privacy
 
-Dovetab has no servers, no analytics, no telemetry and makes no network requests of its own, except when you press Upload or Download in Settings → Sync.
+Dovetab has no servers, no analytics, no telemetry and makes no network requests of its own, except when you press Upload or Download in Settings → Sync. See the [privacy policy](PRIVACY.md).
 
 The optional "Warm up links on hover" setting (off by default) lets the browser resolve a bookmark's domain when you hover it, so the page starts loading sooner. Your DNS resolver sees these lookups, as it would when you open the link.
 
