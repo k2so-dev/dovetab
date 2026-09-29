@@ -394,6 +394,139 @@ await step('falls back to letters when the browser has no favicon endpoint', asy
   await page.evaluate(() => localStorage.removeItem('dovetab:nofavicon'))
 })
 
+const snapshotTree = () =>
+  page.evaluate(async () => {
+    const walk = (n: Node): unknown => (n.url ? [n.title, n.url] : [n.title, (n.children ?? []).map(walk)])
+    return ((await chrome.bookmarks.getTree()) as Node[]).map(walk)
+  })
+
+await step('sync file: export, import restores the tree, undo reverts', async () => {
+  const before = await snapshotTree()
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'Export file…' }).click()
+  await page.getByPlaceholder('New password for the file').fill('hunter2')
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export', exact: true }).click(),
+  ])
+  const file = join(mkdtempSync(join(tmpdir(), 'dovetab-sync-')), 'backup.dovetab')
+  await download.saveAs(file)
+  await page.evaluate(async () => {
+    const b = chrome.bookmarks
+    await b.create({ parentId: '1', title: 'Extra', url: 'https://extra.test/' })
+    const [delta] = await b.search({ url: 'https://delta.test/' })
+    await b.remove(delta!.id)
+  })
+  await page.getByRole('button', { name: 'Import file…' }).click()
+  await page.getByPlaceholder('File password').fill('wrong')
+  await page.locator('input[type=file]').setInputFiles(file)
+  await page.getByText('Wrong key or password').waitFor()
+  await page.getByPlaceholder('File password').fill('hunter2')
+  await page.locator('input[type=file]').setInputFiles(file)
+  await page.getByText(/^From Chrome/).waitFor()
+  assert.match((await page.getByText(/new item/).textContent()) ?? '', /\+1 new item, −1 removed item/)
+  await page.getByRole('button', { name: 'Apply' }).click()
+  await page.getByText('Synced from Chrome').waitFor()
+  assert.deepEqual(await snapshotTree(), before)
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await page.waitForFunction(async () => (await chrome.bookmarks.search({ url: 'https://extra.test/' })).length === 1)
+  assert.equal((await page.evaluate(() => chrome.bookmarks.search({ url: 'https://delta.test/' }))).length, 0)
+  await page.evaluate(async () => {
+    const b = chrome.bookmarks
+    const [extra] = await b.search({ url: 'https://extra.test/' })
+    await b.remove(extra!.id)
+    await b.create({ parentId: '1', title: 'Delta', url: 'https://delta.test/' })
+  })
+})
+
+await step('sync key: upload and download through relays', async () => {
+  const p = await ctx.newPage()
+  p.on('pageerror', (e) => errors.push(String(e)))
+  await p.addInitScript(() => {
+    const store = new Map<string, { id: string; pubkey: string; tags: string[][] }>()
+    class Relay {
+      onopen?: () => void
+      onmessage?: (m: { data: string }) => void
+      onerror?: () => void
+      constructor() {
+        setTimeout(() => this.onopen?.())
+      }
+      reply(m: unknown) {
+        setTimeout(() => this.onmessage?.({ data: JSON.stringify(m) }))
+      }
+      send(raw: string) {
+        const d = JSON.parse(raw)
+        if (d[0] === 'EVENT') {
+          store.set(`${d[1].pubkey}:${d[1].tags.find((t: string[]) => t[0] === 'd')[1]}`, d[1])
+          this.reply(['OK', d[1].id, true, ''])
+        } else if (d[0] === 'REQ') {
+          for (const e of store.values()) this.reply(['EVENT', d[1], e])
+          this.reply(['EOSE', d[1]])
+        }
+      }
+      close() {}
+    }
+    Object.assign(window, { WebSocket: Relay })
+  })
+  await p.goto(`chrome-extension://${id}/newtab.html`)
+  const snap = () =>
+    p.evaluate(async () => {
+      const walk = (n: Node): unknown => (n.url ? [n.title, n.url] : [n.title, (n.children ?? []).map(walk)])
+      return ((await chrome.bookmarks.getTree()) as Node[]).map(walk)
+    })
+  const before = await snap()
+  await p.getByRole('button', { name: 'Settings' }).click()
+  await p.getByPlaceholder('Dovetab').fill('Synced')
+  await p.getByRole('button', { name: 'Create sync key' }).click()
+  await p.getByRole('button', { name: 'Upload', exact: true }).click()
+  await p.getByText('Uploaded to 4 relays').waitFor()
+  await p.getByPlaceholder('Dovetab').fill('Changed')
+  await p.evaluate(() => chrome.bookmarks.create({ parentId: '1', title: 'Extra 2', url: 'https://extra2.test/' }))
+  await p.getByRole('button', { name: 'Download', exact: true }).click()
+  await p.getByText(/−1 removed item, 1 setting/).waitFor()
+  await p.getByRole('button', { name: 'Apply' }).click()
+  await p.getByText('Synced from Chrome').waitFor()
+  assert.deepEqual(await snap(), before)
+  await p.getByRole('button', { name: 'Settings' }).click()
+  assert.equal(await p.getByPlaceholder('Dovetab').inputValue(), 'Synced')
+  await p.getByPlaceholder('Dovetab').fill('')
+  await p.getByRole('button', { name: 'Forget' }).click()
+  await p.close()
+})
+
+await step('sync file carries icons and colors', async () => {
+  await page.reload()
+  await tile('http://ico1.test/').waitFor()
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'Export file…' }).click()
+  await page.getByPlaceholder('New password for the file').fill('pw')
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export', exact: true }).click(),
+  ])
+  const file = join(mkdtempSync(join(tmpdir(), 'dovetab-sync-')), 'icons.dovetab')
+  await download.saveAs(file)
+  await page.getByRole('button', { name: 'Clear icon cache' }).click()
+  await page.getByRole('button', { name: 'Import file…' }).click()
+  await page.getByPlaceholder('File password').fill('pw')
+  await page.locator('input[type=file]').setInputFiles(file)
+  await page.getByText(/\d+ icons?$/).waitFor()
+  await page.getByRole('button', { name: 'Apply' }).click()
+  await page.getByText('Synced from Chrome').waitFor()
+  const stored = await page.evaluate(
+    () =>
+      new Promise<string[]>((res) => {
+        const r = indexedDB.open('dovetab-icons', 1)
+        r.onsuccess = () => {
+          const q = r.result.transaction('icons').objectStore('icons').getAllKeys()
+          q.onsuccess = () => res(q.result.map(String))
+        }
+      }),
+  )
+  assert.ok(stored.includes('ico1.test'), stored.join())
+  await page.waitForFunction(() => (localStorage.getItem('dovetab:colors') ?? '').includes('ico1.test'))
+})
+
 await step('hidden tab drops offscreen sections after 5 minutes', async () => {
   await page.evaluate(async () => {
     const b = chrome.bookmarks

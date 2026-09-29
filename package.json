@@ -29,6 +29,8 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
     "vue": "3.6.0-rc.9"
   },
   "devDependencies": {

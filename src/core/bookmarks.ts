@@ -43,6 +43,17 @@ const schedule = () => {
   timer = setTimeout(refresh, 30)
 }
 
+export async function batch<T>(fn: () => Promise<T>): Promise<T> {
+  importing = true
+  try {
+    return await fn()
+  } finally {
+    importing = false
+    clearTimeout(timer)
+    await refresh()
+  }
+}
+
 export function watchBookmarks() {
   const b = browser.bookmarks
   b.onCreated.addListener(schedule)

@@ -20,7 +20,7 @@ function readColors(): [string, string][] {
 }
 export const colors = reactive(new Map<string, string>(readColors()))
 let saveTimer: ReturnType<typeof setTimeout> | undefined
-function saveColors() {
+export function saveColors() {
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => localStorage.setItem(COLORS_KEY, JSON.stringify(Object.fromEntries(colors))), 500)
 }
@@ -39,7 +39,7 @@ interface IconRec {
   blob: Blob | null
   ts: number
 }
-const db = openStore<IconRec>('dovetab-icons', 'icons')
+export const iconDb = openStore<IconRec>('dovetab-icons', 'icons')
 interface AtlasRec {
   blob: Blob
   hosts: string[]
@@ -48,7 +48,7 @@ interface AtlasRec {
 }
 const atlasDb = openStore<AtlasRec>('dovetab-atlas', 'atlas')
 const ATLAS_KEY = 'dovetab:atlas'
-const ATLAS_COLS = 16
+export const ATLAS_COLS = 16
 const ATLAS_MAX = 512
 const ATLAS_TTL = 7 * 864e5
 export const atlas = shallowRef(new Map<string, string>())
@@ -56,7 +56,7 @@ let atlasRec: AtlasRec | undefined
 let atlasImg: HTMLImageElement | undefined
 export const hasAtlas = () => !!localStorage.getItem(ATLAS_KEY)
 export const fetched = reactive(new Map<string, string>())
-const attempted = new Map<string, number>()
+export const attempted = new Map<string, number>()
 export const iconsReady = shallowRef(false)
 const siteIconsOn = shallowRef(false)
 
@@ -78,7 +78,7 @@ export function initIcons(): Promise<void> {
     (m) => m && later(() => tint(m.bookmarks.values())),
     { immediate: true },
   )
-  const cache = db
+  const cache = iconDb
     .entries()
     .then((entries) => {
       for (const [host, rec] of entries) {
@@ -123,11 +123,7 @@ function dropAtlas(host: string) {
 async function buildAtlas() {
   if (!settings.icons) return
   const cell = devicePixelRatio > 2 ? 64 : 48
-  const list = new Map<string, Bookmark>()
-  for (const b of model.value.bookmarks.values()) {
-    if (list.size >= ATLAS_MAX) break
-    if (!list.has(b.host) && colors.get(b.host)?.[0] === '#' && iconSrc(b)) list.set(b.host, b)
-  }
+  const list = knownIcons()
   const prev = atlasRec && new Set(atlasRec.hosts)
   if (
     prev &&
@@ -137,7 +133,25 @@ async function buildAtlas() {
     [...list.keys()].every((h) => prev.has(h))
   )
     return
-  const items = [...list.values()]
+  const ok = await loadIcons([...list.values()])
+  if (!ok.length) return
+  for (const [b, img] of ok) if (!fetched.has(b.host) && img.naturalWidth < 32) maybeFetch(b)
+  const blob = await sprite(ok, cell, 1, 'image/png')
+  if (!blob) return
+  await atlasDb.set('atlas', { blob, hosts: ok.map(([b]) => b.host), cell, ts: Date.now() })
+  localStorage.setItem(ATLAS_KEY, '1')
+}
+
+export function knownIcons(): Map<string, Bookmark> {
+  const list = new Map<string, Bookmark>()
+  for (const b of model.value.bookmarks.values()) {
+    if (list.size >= ATLAS_MAX) break
+    if (!list.has(b.host) && colors.get(b.host)?.[0] === '#' && iconSrc(b)) list.set(b.host, b)
+  }
+  return list
+}
+
+export async function loadIcons(items: Bookmark[]): Promise<(readonly [Bookmark, HTMLImageElement])[]> {
   const imgs = await Promise.all(
     items.map(
       (b) =>
@@ -155,22 +169,24 @@ async function buildAtlas() {
     const px = pixelsOf(img)
     return !!px && signature(px) === sig
   }
-  const ok = items.flatMap((b, i) => (imgs[i] && !globe(b, imgs[i]) ? [[b, imgs[i]] as const] : []))
-  if (!ok.length) return
+  return items.flatMap((b, i) => (imgs[i] && !globe(b, imgs[i]) ? [[b, imgs[i]] as const] : []))
+}
+
+export function sprite(ok: (readonly [Bookmark, HTMLImageElement])[], cell: number, pad: number, type: string) {
   const cv = document.createElement('canvas')
   cv.width = ATLAS_COLS * cell
   cv.height = Math.ceil(ok.length / ATLAS_COLS) * cell
   const g = cv.getContext('2d')!
   g.imageSmoothingQuality = 'high'
-  ok.forEach(([b, img], i) => {
-    g.drawImage(img, (i % ATLAS_COLS) * cell + 1, Math.floor(i / ATLAS_COLS) * cell + 1, cell - 2, cell - 2)
-    if (!fetched.has(b.host) && img.naturalWidth < 32) maybeFetch(b)
+  ok.forEach(([, img], i) => {
+    const x = (i % ATLAS_COLS) * cell + pad
+    const y = Math.floor(i / ATLAS_COLS) * cell + pad
+    g.drawImage(img, x, y, cell - pad * 2, cell - pad * 2)
   })
-  const blob = await new Promise<Blob | null>((r) => cv.toBlob(r, 'image/png'))
-  if (!blob) return
-  await atlasDb.set('atlas', { blob, hosts: ok.map(([b]) => b.host), cell, ts: Date.now() })
-  localStorage.setItem(ATLAS_KEY, '1')
+  return new Promise<Blob | null>((r) => cv.toBlob(r, type, 0.9))
 }
+
+export const rebuildAtlas = () => later(() => void buildAtlas(), 1000)
 
 let tinting: Bookmark[] = []
 function tint(bookmarks: Iterable<Bookmark>) {
@@ -255,7 +271,7 @@ export async function refreshIcon(b: Bookmark) {
   fetched.delete(b.host)
   attempted.delete(b.host)
   dropAtlas(b.host)
-  await db.del(b.host).catch(() => {})
+  await iconDb.del(b.host).catch(() => {})
   maybeFetch(b)
 }
 
@@ -269,7 +285,7 @@ export async function clearIconCache() {
   atlas.value = new Map()
   atlasRec = atlasImg = undefined
   document.documentElement.style.removeProperty('--atlas')
-  await Promise.all([db.clear(), atlasDb.clear()]).catch(() => {})
+  await Promise.all([iconDb.clear(), atlasDb.clear()]).catch(() => {})
 }
 
 const queue: Bookmark[] = []
@@ -294,7 +310,7 @@ function pump() {
       try {
         const blob = await fetchIcon(b.url)
         attempted.set(b.host, Date.now())
-        await db.set(b.host, { blob, ts: Date.now() }).catch(() => {})
+        await iconDb.set(b.host, { blob, ts: Date.now() }).catch(() => {})
         if (blob) {
           dropAtlas(b.host)
           colors.delete(b.host)

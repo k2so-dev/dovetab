@@ -10,12 +10,13 @@ Your browser bookmarks on the new tab page. Fast, private, open source. Chrome a
 - Cleanup: finds duplicate bookmarks and old ones you never open
 - Keyboard: arrow keys move between bookmarks, `Delete` removes, paste a URL anywhere to bookmark it
 - Search palette (`⌘K` / `Ctrl+K`, `/`, or just start typing), with optional history and web search
+- Manual sync between any browsers (say Chrome → Firefox): a sync key or a password-protected file, end-to-end encrypted
 - System, light or dark theme; animations can be turned off
 - System fonts, no web fonts, no framework runtime beyond Vue Vapor (~50 KB JS gzipped)
 
 ## Privacy
 
-Dovetab has no servers, no analytics, no telemetry and makes no network requests of its own.
+Dovetab has no servers, no analytics, no telemetry and makes no network requests of its own, except when you press Upload or Download in Settings → Sync.
 
 The optional "Warm up links on hover" setting (off by default) lets the browser resolve a bookmark's domain when you hover it, so the page starts loading sooner. Your DNS resolver sees these lookups, as it would when you open the link.
 
@@ -25,6 +26,15 @@ The optional "Warm up links on hover" setting (off by default) lets the browser 
 | Settings, pins, hidden    | `storage.sync`, synced by your browser account like any extension setting. |
 | Open counts (for ranking) | `localStorage` on this device. Clear it in Settings → Data.                |
 | Site icons and colors     | IndexedDB / `localStorage` on this device. Clear it in Settings → Data.    |
+
+### Sync
+
+Settings → Sync moves settings, bookmarks and (optionally) up to 512 small site icons to another browser. Nothing happens automatically.
+
+- **Sync key**: create a key in one browser, paste it in the other. Upload encrypts a snapshot with AES-256-GCM on your device and publishes it to four public [Nostr](https://nostr.com) relays as replaceable app-data events (NIP-78). Download fetches the newest one. Relays only see random bytes and a random public key derived from your sync key. Treat the key like a password: anyone who has it can read and replace your sync data.
+- **File**: export a `.dovetab` file protected by a password (PBKDF2-SHA256, 600k iterations, AES-256-GCM) and import it anywhere. No network at all.
+
+Download and import show what will change first. Applying makes this browser's bookmarks match the snapshot (only the difference is created, removed or moved, root folders are matched by kind) and can be undone right after. Usage stats, history and per-device state are never synced.
 
 ### Permissions
 

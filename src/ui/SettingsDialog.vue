@@ -1,9 +1,11 @@
 <script setup lang="ts" vapor>
-import { computed } from 'vue'
-import { model } from '@/core/bookmarks'
-import { clearIconCache, colorFor } from '@/core/favicon'
-import { browser, dropPermission, modKey, requestPermission, type Perm } from '@/core/platform'
+import { computed, reactive, ref, shallowRef, watch } from 'vue'
+import { batch, model } from '@/core/bookmarks'
+import * as fav from '@/core/favicon'
+import { browser, dropPermission, isFirefox, modKey, requestPermission, type Perm } from '@/core/platform'
+import { ago } from '@/core/score'
 import { animationsOn, settings, toggleIn } from '@/core/settings'
+import type { Incoming } from '@/core/sync'
 import { hostOf } from '@/core/tree'
 import { toast, ui } from '@/core/ui'
 import { clearStats, historyGranted } from '@/core/usage'
@@ -39,9 +41,123 @@ const animations = computed({
 })
 
 async function clearIcons() {
-  await clearIconCache()
+  await fav.clearIconCache()
   toast('Icon cache cleared')
 }
+const SYNC_KEY = 'dovetab:sync'
+interface SyncMeta {
+  key: string
+  icons: boolean
+  last: { at: number; dir: 'up' | 'down'; from: string } | null
+}
+function readSync(): SyncMeta {
+  try {
+    return { key: '', icons: true, last: null, ...JSON.parse(localStorage.getItem(SYNC_KEY) ?? '{}') }
+  } catch {
+    return { key: '', icons: true, last: null }
+  }
+}
+const sync = reactive<SyncMeta>(readSync())
+watch(sync, () => localStorage.setItem(SYNC_KEY, JSON.stringify(sync)), { deep: true })
+const lib = async () => {
+  const s = await import('@/core/sync')
+  s.init({ browser, isFirefox, settings, batch, toast, fav })
+  return s
+}
+const busy = ref('')
+const pasting = ref(false)
+const pasted = ref('')
+const incoming = shallowRef<Incoming | null>(null)
+const fileMode = ref<'export' | 'import' | null>(null)
+const password = ref('')
+const picker = ref<HTMLInputElement>()
+
+async function task(label: string, fn: () => Promise<void>) {
+  if (busy.value) return
+  busy.value = label
+  try {
+    await fn()
+  } catch (e) {
+    toast(e instanceof Error ? e.message : 'Sync failed')
+  } finally {
+    busy.value = ''
+  }
+}
+
+const createKey = () => task('Creating…', async () => void (sync.key = (await lib()).newSyncKey()))
+function savePasted() {
+  const k = pasted.value.match(/dovetab-sync:[A-Za-z0-9_-]{43}/)?.[0]
+  if (!k) return toast('That is not a Dovetab sync key')
+  sync.key = k
+  pasting.value = false
+  pasted.value = ''
+}
+async function copyKey() {
+  await navigator.clipboard.writeText(sync.key)
+  toast('Sync key copied')
+}
+function forgetKey() {
+  const k = sync.key
+  sync.key = ''
+  sync.last = null
+  incoming.value = null
+  toast('Sync key removed', async () => void (sync.key = k))
+}
+const upload = () =>
+  task('Uploading…', async () => {
+    const n = await (await lib()).upload(sync.key, sync.icons)
+    sync.last = { at: Date.now(), dir: 'up', from: 'this browser' }
+    toast(`Uploaded to ${n} relay${n === 1 ? '' : 's'}`)
+  })
+const download = () =>
+  task('Downloading…', async () => {
+    incoming.value = await (await lib()).download(sync.key)
+    if (!incoming.value) toast('Nothing uploaded with this key yet')
+  })
+const apply = () =>
+  task('Applying…', async () => {
+    const inc = incoming.value!
+    await inc.apply()
+    if (fileMode.value !== 'import') sync.last = { at: Date.now(), dir: 'down', from: inc.from }
+    incoming.value = null
+    fileMode.value = null
+    ui.settings = false
+  })
+function startFile(mode: 'export' | 'import') {
+  fileMode.value = fileMode.value === mode ? null : mode
+  password.value = ''
+  incoming.value = null
+}
+const exportFile = () =>
+  task('Exporting…', async () => {
+    await (await lib()).exportFile(password.value, sync.icons)
+    fileMode.value = null
+    password.value = ''
+  })
+function onFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const f = input.files?.[0]
+  input.value = ''
+  if (!f) return
+  void task('Decrypting…', async () => {
+    incoming.value = await (await lib()).importFile(f, password.value)
+    password.value = ''
+  })
+}
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
+const preview = computed(() => {
+  const i = incoming.value
+  if (!i) return ''
+  const parts = [
+    i.add && `+${plural(i.add, 'new item')}`,
+    i.remove && `−${plural(i.remove, 'removed item')}`,
+    i.move && plural(i.move, 'move'),
+    i.settings && plural(i.settings, 'setting'),
+    i.icons && plural(i.icons, 'icon'),
+  ].filter(Boolean)
+  return parts.length ? parts.join(', ') : 'Already in sync'
+})
+
 function resetStats() {
   clearStats()
   toast('Usage stats cleared')
@@ -253,7 +369,7 @@ function resetStats() {
         <div v-for="h in hidden" :key="h.url" class="flex h-10 items-center gap-2.5">
           <div
             class="grid size-5 flex-none place-items-center rounded-[5px] text-[10px] font-semibold text-white"
-            :style="{ background: colorFor(h.host) }"
+            :style="{ background: fav.colorFor(h.host) }"
           >
             {{ h.title[0]?.toUpperCase() }}
           </div>
@@ -270,6 +386,177 @@ function resetStats() {
         <p v-if="!hidden.length" class="py-2 text-[12.5px] text-mfg">
           Nothing hidden. Use “Hide” in a bookmark’s menu to remove it from this page without deleting it.
         </p>
+
+        <div class="mt-2 border-t border-border pt-[18px] pb-1.5 text-[11.5px] font-medium tracking-[.02em] text-mfg">
+          SYNC
+        </div>
+        <p class="py-1 text-[12.5px] text-pretty text-mfg">
+          Move settings, bookmarks and icons to another browser, by hand. Everything is encrypted on this device. With a
+          sync key the data goes through public Nostr relays that only see random bytes; anyone with the key can read
+          and replace it.
+        </p>
+        <div v-if="!sync.key && !pasting" class="flex flex-wrap gap-2 py-2">
+          <button
+            type="button"
+            class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+            :disabled="!!busy"
+            @click="createKey"
+          >
+            Create sync key
+          </button>
+          <button
+            type="button"
+            class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+            @click="pasting = true"
+          >
+            Paste sync key
+          </button>
+        </div>
+        <form v-else-if="pasting" class="flex gap-2 py-2" @submit.prevent="savePasted">
+          <input
+            v-model="pasted"
+            type="text"
+            autofocus
+            spellcheck="false"
+            placeholder="dovetab-sync:…"
+            class="h-8 min-w-0 flex-1 rounded-lg border border-border bg-input px-2.5 text-[13px] text-fg outline-0 focus:border-mfg focus:shadow-[0_0_0_3px_var(--ring)]"
+          />
+          <button
+            type="submit"
+            class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+            @click="pasting = false"
+          >
+            Cancel
+          </button>
+        </form>
+        <template v-else>
+          <div class="flex gap-2 py-2">
+            <input
+              :value="sync.key"
+              type="password"
+              readonly
+              aria-label="Sync key"
+              class="h-8 min-w-0 flex-1 rounded-lg border border-border bg-input px-2.5 text-[13px] text-fg outline-0 focus:border-mfg focus:shadow-[0_0_0_3px_var(--ring)]"
+            />
+            <button
+              type="button"
+              class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+              @click="copyKey"
+            >
+              Copy
+            </button>
+            <button
+              type="button"
+              class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+              @click="forgetKey"
+            >
+              Forget
+            </button>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 py-2">
+            <button
+              type="button"
+              class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+              :disabled="!!busy"
+              @click="upload"
+            >
+              Upload
+            </button>
+            <button
+              type="button"
+              class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+              :disabled="!!busy"
+              @click="download"
+            >
+              Download
+            </button>
+            <span v-if="sync.last" class="text-[12.5px] text-mfg">
+              {{ sync.last.dir === 'up' ? 'Uploaded' : 'Downloaded from ' + sync.last.from }}
+              {{ ago(sync.last.at) }}
+            </span>
+          </div>
+        </template>
+        <div class="flex flex-wrap gap-2 py-2">
+          <button
+            type="button"
+            class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+            :disabled="!!busy"
+            @click="startFile('export')"
+          >
+            Export file…
+          </button>
+          <button
+            type="button"
+            class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+            :disabled="!!busy"
+            @click="startFile('import')"
+          >
+            Import file…
+          </button>
+        </div>
+        <form
+          v-if="fileMode"
+          class="flex gap-2 py-2"
+          @submit.prevent="fileMode === 'export' ? exportFile() : picker?.click()"
+        >
+          <input
+            v-model="password"
+            type="password"
+            autofocus
+            :placeholder="fileMode === 'export' ? 'New password for the file' : 'File password'"
+            class="h-8 min-w-0 flex-1 rounded-lg border border-border bg-input px-2.5 text-[13px] text-fg outline-0 focus:border-mfg focus:shadow-[0_0_0_3px_var(--ring)]"
+          />
+          <button
+            type="submit"
+            class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+            :disabled="!password || !!busy"
+          >
+            {{ fileMode === 'export' ? 'Export' : 'Choose file' }}
+          </button>
+          <input ref="picker" type="file" accept=".dovetab" hidden @change="onFile" />
+        </form>
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-4 py-2.5 text-left"
+          @click="sync.icons = !sync.icons"
+        >
+          <div class="min-w-0">
+            <div class="text-[13.5px] font-medium">Include icons</div>
+            <div class="mt-0.5 text-[12.5px] text-pretty text-mfg">Adds up to 512 small site icons, about 200 KB.</div>
+          </div>
+          <Switch v-model="sync.icons" />
+        </button>
+        <p v-if="busy" role="status" class="py-1 text-[12.5px] text-mfg">{{ busy }}</p>
+        <div v-if="incoming" class="my-2 rounded-lg border border-border p-3">
+          <div class="text-[13.5px] font-medium">From {{ incoming.from }} · {{ ago(incoming.ts) }}</div>
+          <div class="mt-0.5 text-[12.5px] text-mfg">{{ preview }}</div>
+          <div class="mt-2.5 flex gap-2">
+            <button
+              type="button"
+              class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+              :disabled="!!busy"
+              @click="apply"
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              class="flex h-8 items-center rounded-lg border border-border px-3 text-[13px] hover:bg-accent disabled:opacity-50"
+              @click="incoming = null"
+            >
+              Cancel
+            </button>
+          </div>
+          <p class="mt-2 text-[12px] text-pretty text-mfg">
+            Bookmarks here will match the incoming ones. You can undo right after.
+          </p>
+        </div>
 
         <div class="mt-2 border-t border-border pt-[18px] pb-1.5 text-[11.5px] font-medium tracking-[.02em] text-mfg">
           DATA
