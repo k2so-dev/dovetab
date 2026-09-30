@@ -45,8 +45,11 @@ export function webSearch(text: string, newTab: boolean) {
 
 export async function openUrl(url: string, where: 'current' | 'tab' | 'window' | 'incognito' | 'background') {
   switch (where) {
-    case 'current':
-      return void (await browser.tabs.update({ url }))
+    case 'current': {
+      const tab = await browser.tabs.getCurrent().catch(() => undefined)
+      if (tab?.id == null) return void location.assign(url)
+      return void (await browser.tabs.update(tab.id, { url }))
+    }
     case 'tab':
       return void (await browser.tabs.create({ url, active: true }))
     case 'background':
