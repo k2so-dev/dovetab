@@ -35,10 +35,10 @@ function browserName(): string {
   if (ctx.isFirefox) return /Zen\//.test(navigator.userAgent) ? 'Zen' : 'Firefox'
   if ((navigator as { brave?: unknown }).brave) return 'Brave'
   const ua = navigator.userAgent
+  if (/AppleWebKit\/(?!537\.36)/.test(ua)) return 'Orion'
   if (/Edg\//.test(ua)) return 'Edge'
   if (/OPR\//.test(ua)) return 'Opera'
   if (/Vivaldi/.test(ua)) return 'Vivaldi'
-  if (!/Chrome\//.test(ua) && /Safari\//.test(ua)) return 'Orion'
   return 'Chrome'
 }
 

@@ -22,6 +22,11 @@ export type Op =
   | { t: 'move'; id: string; parentId: string; index: number }
 
 export const MENU_TITLE = 'Bookmarks Menu'
+export const MOBILE_TITLE = 'Mobile Bookmarks'
+const NESTED: [Kind, string][] = [
+  ['menu', MENU_TITLE],
+  ['mobile', MOBILE_TITLE],
+]
 export const LOCAL_ONLY = ['history', 'siteIcons', 'recent']
 
 type Node = RawNode & { folderType?: string; unmodifiable?: string }
@@ -35,8 +40,9 @@ const FIREFOX: Record<string, Kind> = {
 const FOLDER_TYPE: Record<string, Kind> = { 'bookmarks-bar': 'bar', other: 'other', mobile: 'mobile' }
 const ORDER: Kind[] = ['bar', 'other', 'mobile']
 
-export function rootKind(n: Node, i: number): Kind | null {
-  if (n.unmodifiable || n.folderType === 'managed') return null
+export function rootKind(n: Node, i: number, locked = false): Kind | null {
+  if (n.folderType === 'managed' || (n.unmodifiable && !locked)) return null
+  if (locked) return ORDER[i] === 'mobile' ? null : (ORDER[i] ?? null)
   return FIREFOX[n.id] ?? (n.folderType ? FOLDER_TYPE[n.folderType] : undefined) ?? ORDER[i] ?? null
 }
 
@@ -54,8 +60,10 @@ export function toItems(n: RawNode): Item[] {
 
 export function localRoots(tree: RawNode[]): Map<Kind, Node> {
   const m = new Map<Kind, Node>()
-  ;(tree[0]?.children ?? []).forEach((n, i) => {
-    const k = rootKind(n, i)
+  const kids: Node[] = tree[0]?.children ?? []
+  const locked = kids.length > 0 && kids.every((n) => n.unmodifiable)
+  kids.forEach((n, i) => {
+    const k = rootKind(n, i, locked)
     if (k && !m.has(k)) m.set(k, n)
   })
   return m
@@ -71,16 +79,18 @@ export function targets(snap: RootSnap[], local: Map<Kind, Node>): Map<Node, Ite
   const kinds = new Set(snap.map((r) => r.kind))
   for (const r of snap) {
     let items = r.items
-    if (r.kind === 'other' && local.has('menu') && !kinds.has('menu')) {
-      const i = items.findIndex((x) => x[0] === MENU_TITLE && Array.isArray(x[1]))
-      if (i >= 0) {
-        add(local.get('menu')!, items[i]![1] as Item[])
+    if (r.kind === 'other')
+      for (const [k, title] of NESTED) {
+        if (!local.has(k) || kinds.has(k)) continue
+        const i = items.findIndex((x) => x[0] === title && Array.isArray(x[1]))
+        if (i < 0) continue
+        add(local.get(k)!, items[i]![1] as Item[])
         items = items.filter((_, j) => j !== i)
       }
-    }
     const n = local.get(r.kind)
+    const title = NESTED.find(([k]) => k === r.kind)?.[1] ?? r.kind
     if (n) add(n, items)
-    else if (local.has('other')) add(local.get('other')!, [[r.kind === 'menu' ? MENU_TITLE : r.kind, items]])
+    else if (local.has('other') && items.length) add(local.get('other')!, [[title, items]])
   }
   return out
 }

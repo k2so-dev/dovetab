@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { keysFrom, lockFile, newSyncKey, parseSyncKey, seal, unlockFile, unseal } from '@/core/sync/crypto'
 import {
   MENU_TITLE,
+  MOBILE_TITLE,
   localRoots,
   pack,
   plan,
@@ -104,6 +105,43 @@ describe('sync roots', () => {
     expect(other).toEqual([[MENU_TITLE, [['M', 'https://m.test/']]]])
     const back = targets([{ kind: 'other', items: other }], localRoots(firefox))
     expect([...back].find(([n]) => n.id === 'menu________')![1]).toEqual([['M', 'https://m.test/']])
+  })
+
+  it('uses Orion roots although all of them are unmodifiable', () => {
+    const root = (id: string, title: string, children: RawNode[] = []) =>
+      ({ id, title, children, unmodifiable: 'managed' }) as RawNode
+    const orion: RawNode[] = [
+      root('0', '', [
+        root('3', 'Favorites', [node('F', 'https://f.test/')]),
+        root('2', 'Bookmarks'),
+        root('1', 'Bookmarks Bar', [node('X', 'https://x.test/')]),
+      ]),
+    ]
+    expect(readRoots(orion)).toEqual([
+      { kind: 'bar', items: [['F', 'https://f.test/']] },
+      { kind: 'other', items: [] },
+    ])
+    const snap = readRoots(chrome)
+    snap[2]!.items = [['P', 'https://p.test/']]
+    const t = targets(snap, localRoots(orion))
+    expect([...t].map(([n]) => n.id)).toEqual(['3', '2'])
+    expect(t.get([...t.keys()][1]!)).toEqual([[MOBILE_TITLE, [['P', 'https://p.test/']]]])
+    const back = targets([{ kind: 'other', items: [[MOBILE_TITLE, [['P', 'https://p.test/']]]] }], localRoots(chrome))
+    expect([...back].find(([n]) => n.id === '3')![1]).toEqual([['P', 'https://p.test/']])
+  })
+
+  it('skips a managed root next to regular ones', () => {
+    const tree: RawNode[] = [
+      {
+        id: '0',
+        title: '',
+        children: [
+          ...chrome[0]!.children!,
+          { id: '9', title: 'Managed', children: [], unmodifiable: 'managed' } as RawNode,
+        ],
+      },
+    ]
+    expect(readRoots(tree).map((r) => r.kind)).toEqual(['bar', 'other', 'mobile'])
   })
 })
 

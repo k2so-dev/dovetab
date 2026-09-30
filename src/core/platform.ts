@@ -3,6 +3,7 @@ import { browser } from 'wxt/browser'
 export { browser }
 
 export const isFirefox = import.meta.env.FIREFOX
+export const isWebKit = /AppleWebKit\/(?!537\.36)/.test(navigator.userAgent)
 
 export const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 export const modKey = isMac ? '⌘' : 'Ctrl+'

@@ -1,5 +1,5 @@
 import { shallowRef } from 'vue'
-import { browser, idle, isFirefox } from './platform'
+import { browser, idle, isFirefox, isWebKit } from './platform'
 import { buildModel, type Model, type RawNode } from './tree'
 
 const SNAP_KEY = 'dovetab:snapshot'
@@ -78,7 +78,7 @@ export async function moveBookmark(id: string, parentId: string, beforeIndex?: n
   if (beforeIndex === undefined) return browser.bookmarks.move(id, { parentId })
   const [node] = await browser.bookmarks.get(id)
   let index = beforeIndex
-  if (isFirefox && node?.parentId === parentId && (node.index ?? 0) < beforeIndex) index--
+  if ((isFirefox || isWebKit) && node?.parentId === parentId && (node.index ?? 0) < beforeIndex) index--
   return browser.bookmarks.move(id, { parentId, index })
 }
 
