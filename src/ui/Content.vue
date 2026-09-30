@@ -148,7 +148,10 @@ onMounted(() => {
     },
     { root, rootMargin: '1200px 0px' },
   )
-  ro = new ResizeObserver(([e]) => (width.value = e!.contentRect.width))
+  ro = new ResizeObserver(([e]) => {
+    const w = e!.contentRect.width
+    requestAnimationFrame(() => (width.value = w))
+  })
   if (wrap.value) ro.observe(wrap.value)
   observe()
 })
