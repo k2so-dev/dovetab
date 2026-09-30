@@ -527,6 +527,33 @@ await step('sync file carries icons and colors', async () => {
   await page.waitForFunction(() => (localStorage.getItem('dovetab:colors') ?? '').includes('ico1.test'))
 })
 
+await step('cleanup count is in the first frame and dialogs load on demand', async () => {
+  const p = await ctx.newPage()
+  await p.goto(`chrome-extension://${id}/newtab.html`)
+  await p.evaluate(async () => {
+    for (const t of ['Twin', 'Twin copy'])
+      await chrome.bookmarks.create({ parentId: '2', title: t, url: 'https://twin.test/' })
+  })
+  await p.waitForFunction(() => Number(localStorage.getItem('dovetab:cleanup')) > 0, null, { timeout: 8000 })
+  const saved = await p.evaluate(() => localStorage.getItem('dovetab:cleanup'))
+  const loaded: string[] = []
+  p.on('request', (r) => loaded.push(r.url()))
+  await p.reload()
+  const row = p.locator('nav [role=button]', { hasText: 'Cleanup' })
+  await row.waitFor()
+  assert.ok((await row.textContent())!.includes(saved!), await row.textContent())
+  assert.ok((await p.evaluate(() => performance.now())) < 1500)
+  await p.waitForTimeout(3500)
+  assert.deepEqual(
+    loaded.filter((u) => /Dialog|Palette/.test(u)),
+    [],
+  )
+  await p.getByRole('button', { name: 'Settings' }).hover()
+  await p.waitForTimeout(300)
+  assert.ok(loaded.some((u) => u.includes('SettingsDialog')))
+  await p.close()
+})
+
 await step('hidden tab drops offscreen sections after 5 minutes', async () => {
   await page.evaluate(async () => {
     const b = chrome.bookmarks

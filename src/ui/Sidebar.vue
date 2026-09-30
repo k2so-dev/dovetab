@@ -4,6 +4,7 @@ import { isDark, local, settings } from '@/core/settings'
 import { dropOnFolder, ui } from '@/core/ui'
 import { RECO, treeRows, type TreeRow } from '@/core/view'
 import Icon from './Icon.vue'
+import { preload } from './lazy'
 
 function toggle(e: Event, r: TreeRow) {
   e.stopPropagation()
@@ -84,6 +85,7 @@ function toggleTheme() {
       <button
         type="button"
         class="flex h-8 flex-1 items-center gap-2 rounded-[7px] px-2.5 text-[13.5px] text-mfg hover:bg-accent hover:text-fg"
+        @pointerenter="preload('settings')"
         @click="ui.settings = true"
       >
         <Icon name="sliders-horizontal" />

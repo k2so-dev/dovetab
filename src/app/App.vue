@@ -1,18 +1,12 @@
 <script setup lang="ts" vapor>
-import { computed, defineVaporAsyncComponent, onMounted, onUnmounted } from 'vue'
-import { later } from '@/core/platform'
+import { computed, defineVaporAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
 import { parseUrl, pasteBookmark, ui } from '@/core/ui'
 import Content from '@/ui/Content.vue'
 import ContextMenu from '@/ui/ContextMenu.vue'
+import { loaders, preload } from '@/ui/lazy'
 import Sidebar from '@/ui/Sidebar.vue'
 import Toast from '@/ui/Toast.vue'
 
-const loaders = {
-  palette: () => import('@/ui/Palette.vue'),
-  edit: () => import('@/ui/EditDialog.vue'),
-  confirm: () => import('@/ui/ConfirmDialog.vue'),
-  settings: () => import('@/ui/SettingsDialog.vue'),
-}
 const Palette = defineVaporAsyncComponent(loaders.palette)
 const EditDialog = defineVaporAsyncComponent(loaders.edit)
 const ConfirmDialog = defineVaporAsyncComponent(loaders.confirm)
@@ -26,7 +20,10 @@ const need = computed(() => ({
   confirm: latch('confirm', !!ui.confirm),
   settings: latch('settings', ui.settings),
 }))
-later(() => Object.values(loaders).forEach((l) => void l()))
+watch(
+  () => ui.menu,
+  (m) => m && preload('edit'),
+)
 
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))

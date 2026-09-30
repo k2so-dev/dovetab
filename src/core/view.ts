@@ -1,4 +1,4 @@
-import { computed, shallowRef } from 'vue'
+import { computed, shallowRef, watchEffect } from 'vue'
 import { model } from './bookmarks'
 import { score, ago } from './score'
 import { local, settings } from './settings'
@@ -112,7 +112,16 @@ export const staleItems = computed(() =>
       ),
 )
 export const extraCopies = computed(() => dupeGroups.value.flatMap((g) => g.slice(1)))
-export const cleanupCount = computed(() => extraCopies.value.length + staleItems.value.length)
+const CLEANUP_KEY = 'dovetab:cleanup'
+let cleanupSaved = Number(localStorage.getItem(CLEANUP_KEY)) || 0
+export const cleanupCount = computed(() =>
+  cleanupOn() ? extraCopies.value.length + staleItems.value.length : cleanupSaved,
+)
+watchEffect(() => {
+  if (!cleanupOn() || cleanupCount.value === cleanupSaved) return
+  cleanupSaved = cleanupCount.value
+  localStorage.setItem(CLEANUP_KEY, String(cleanupSaved))
+})
 
 const same = (a: Section, b: Section) =>
   a.title === b.title &&

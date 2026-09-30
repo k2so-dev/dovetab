@@ -7,6 +7,7 @@ import { ui } from '@/core/ui'
 import { historyGranted } from '@/core/usage'
 import { CLEAN, RECO, crumbs, go, title, total } from '@/core/view'
 import Icon from './Icon.vue'
+import { preload } from './lazy'
 import Segmented from './Segmented.vue'
 
 const sortEl = ref<HTMLElement>()
@@ -69,6 +70,7 @@ const DENSITIES = [
         <button
           type="button"
           class="flex h-[34px] w-[280px] cursor-text items-center gap-2 rounded-lg border border-border bg-side pr-1.5 pl-2.5 text-[13.5px] text-mfg hover:border-accent2"
+          @pointerenter="preload('palette')"
           @click="ui.palette = true"
         >
           <Icon name="search" />
