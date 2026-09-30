@@ -55,7 +55,25 @@ export const atlas = shallowRef(new Map<string, string>())
 let atlasRec: AtlasRec | undefined
 let atlasImg: HTMLImageElement | undefined
 export const hasAtlas = () => !!localStorage.getItem(ATLAS_KEY)
-export const fetched = reactive(new Map<string, string>())
+export const fetched = reactive(new Map<string, Blob>())
+const urls = new Map<string, string>()
+function fetchedUrl(host: string): string | undefined {
+  const blob = fetched.get(host)
+  if (!blob) return
+  let u = urls.get(host)
+  if (!u) urls.set(host, (u = URL.createObjectURL(blob)))
+  return u
+}
+function dropFetched(host: string) {
+  const u = urls.get(host)
+  if (u) URL.revokeObjectURL(u)
+  urls.delete(host)
+  fetched.delete(host)
+}
+export function setFetched(host: string, blob: Blob) {
+  dropFetched(host)
+  fetched.set(host, blob)
+}
 export const attempted = new Map<string, number>()
 export const iconsReady = shallowRef(false)
 const siteIconsOn = shallowRef(false)
@@ -83,7 +101,7 @@ export function initIcons(): Promise<void> {
     .then((entries) => {
       for (const [host, rec] of entries) {
         attempted.set(host, rec.ts)
-        if (rec.blob) fetched.set(host, URL.createObjectURL(rec.blob))
+        if (rec.blob) fetched.set(host, rec.blob)
       }
     })
     .catch(() => {})
@@ -146,7 +164,7 @@ export function knownIcons(): Map<string, Bookmark> {
   const list = new Map<string, Bookmark>()
   for (const b of model.value.bookmarks.values()) {
     if (list.size >= ATLAS_MAX) break
-    if (!list.has(b.host) && colors.get(b.host)?.[0] === '#' && iconSrc(b)) list.set(b.host, b)
+    if (!list.has(b.host) && colors.get(b.host)?.[0] === '#' && hasIcon(b)) list.set(b.host, b)
   }
   return list
 }
@@ -226,8 +244,10 @@ function chromeDefaultSignature(): Promise<string | null> {
   })
 }
 
+const hasIcon = (b: Bookmark) => fetched.has(b.host) || (browserIcons() && !isMissing(b.host))
+
 export function iconSrc(b: Bookmark): string | null {
-  const f = fetched.get(b.host)
+  const f = fetchedUrl(b.host)
   if (f) return f
   if (browserIcons() && !isMissing(b.host)) return chromeFavicon(b.url, 64)
   maybeFetch(b)
@@ -255,8 +275,7 @@ export async function onIconLoad(b: Bookmark, img: HTMLImageElement) {
 
 export function onIconError(b: Bookmark) {
   if (fetched.has(b.host)) {
-    URL.revokeObjectURL(fetched.get(b.host)!)
-    fetched.delete(b.host)
+    dropFetched(b.host)
     return
   }
   colors.set(b.host, `-${today()}`)
@@ -266,9 +285,7 @@ export function onIconError(b: Bookmark) {
 export async function refreshIcon(b: Bookmark) {
   colors.delete(b.host)
   saveColors()
-  const f = fetched.get(b.host)
-  if (f) URL.revokeObjectURL(f)
-  fetched.delete(b.host)
+  dropFetched(b.host)
   attempted.delete(b.host)
   dropAtlas(b.host)
   await iconDb.del(b.host).catch(() => {})
@@ -276,7 +293,8 @@ export async function refreshIcon(b: Bookmark) {
 }
 
 export async function clearIconCache() {
-  for (const u of fetched.values()) URL.revokeObjectURL(u)
+  for (const u of urls.values()) URL.revokeObjectURL(u)
+  urls.clear()
   fetched.clear()
   attempted.clear()
   colors.clear()
@@ -314,7 +332,7 @@ function pump() {
         if (blob) {
           dropAtlas(b.host)
           colors.delete(b.host)
-          fetched.set(b.host, URL.createObjectURL(blob))
+          setFetched(b.host, blob)
         }
       } finally {
         running--

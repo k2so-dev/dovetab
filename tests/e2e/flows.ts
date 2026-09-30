@@ -541,7 +541,7 @@ await step('cleanup count is in the first frame and dialogs load on demand', asy
   await p.reload()
   const row = p.locator('nav [role=button]', { hasText: 'Cleanup' })
   await row.waitFor()
-  assert.ok((await row.textContent())!.includes(saved!), await row.textContent())
+  assert.ok((await row.textContent())!.includes(saved!))
   assert.ok((await p.evaluate(() => performance.now())) < 1500)
   await p.waitForTimeout(3500)
   assert.deepEqual(

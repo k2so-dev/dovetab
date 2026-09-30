@@ -18,7 +18,7 @@ export function exportColors(): Record<string, string> {
 }
 
 export async function importIcons(hosts: string[], data: Uint8Array | undefined, remote: Record<string, string>) {
-  const { ATLAS_COLS, attempted, colors, fetched, iconDb, rebuildAtlas, saveColors } = ctx.fav
+  const { ATLAS_COLS, attempted, colors, fetched, iconDb, rebuildAtlas, saveColors, setFetched } = ctx.fav
   const has = (h: string) => fetched.has(h) || colors.get(h)?.[0] === '#'
   const want = hosts.flatMap((h, i) => (has(h) ? [] : [[h, i] as const]))
   for (const [h, c] of Object.entries(remote)) if (!has(h) && /^#[0-9a-f]{6}$/i.test(c)) colors.set(h, c)
@@ -37,7 +37,7 @@ export async function importIcons(hosts: string[], data: Uint8Array | undefined,
     if (!blob) continue
     await iconDb.set(h, { blob, ts: Date.now() }).catch(() => {})
     attempted.set(h, Date.now())
-    fetched.set(h, URL.createObjectURL(blob))
+    setFetched(h, blob)
     n++
   }
   bmp.close()

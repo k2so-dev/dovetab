@@ -29,7 +29,8 @@ export async function refresh() {
   loaded.value = true
   const save = () => {
     try {
-      localStorage.setItem(SNAP_KEY, JSON.stringify(tree.map(strip)))
+      const json = JSON.stringify(tree.map(strip))
+      if (json !== localStorage.getItem(SNAP_KEY)) localStorage.setItem(SNAP_KEY, json)
     } catch {}
   }
   idle(save)
